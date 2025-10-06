@@ -2,7 +2,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
-
+#include <cmath>
+#include <ctime>
 #define panicf(__format, ...) \
     do { \
         std::fprintf(stderr, "[CRITICAL ERROR] %s:%d: " __format "\n", \
@@ -89,13 +90,13 @@ NodeSet parse_dataset(char *in_file_contents) {
         size++;
     }
     rest=whole_file;
-    NodeSet ret = {0};
+    NodeSet ret;
     ret.nodes = new Node[size];
     ret.size = size;
     int index = 0;
     while(rest.size() > 0) {
         assert(index < size);
-        Node new_node = {0};
+        Node new_node;
         size_t pos = rest.find(number_separator);
         int x = std::atoi(rest.substr(0, pos).c_str());
         rest = rest.substr(pos+1);
@@ -121,11 +122,32 @@ void print_node(Node node) {
         "; cost = " << node.cost << std::endl;
 }
 
+NodeSet get_random_solution(NodeSet dataset) {
+    NodeSet ret;
+    int target_size = std::ceil((double)dataset.size/2);
+    ret.nodes = new Node[target_size];
+    bool *present = new bool[dataset.size]();
+    int n_found = 0;
+    while(n_found < target_size) {
+        int rand = std::rand() % dataset.size;
+        while(present[rand]) {
+            rand = std::rand() % dataset.size;
+        }
+        present[rand] = true;
+        ret.nodes[n_found] = dataset.nodes[rand];
+        n_found++;
+    }
+    ret.size = target_size;
+    delete[] present;
+    return ret;
+}
+
 int main() {
+    std::srand(42);
     char * whole_file = read_file("./TSPA.csv");
     NodeSet dataset = parse_dataset(whole_file);
-    for(int i = 0; i < dataset.size; i++) {
-        print_node(dataset.nodes[i]);
+    NodeSet random_solution = get_random_solution(dataset);
+    for(int i = 0; i < random_solution.size; i++) {
+        print_node(random_solution.nodes[i]);
     }
-
 }
