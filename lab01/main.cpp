@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <cassert>
 
 #define panicf(__format, ...) \
     do { \
@@ -70,11 +71,61 @@ struct NodeSet {
 };
 
 NodeSet parse_dataset(char *in_file_contents) {
-    std::string whole_file()
+    std::string whole_file(in_file_contents);
+    std::string number_separator = ";";
+    std::string new_line = "\n";
+    std::string rest(whole_file);
+    int size = 0;
+    while(rest.size() > 0) {
+        // x
+        size_t pos = rest.find(number_separator);
+        rest = rest.substr(pos+1);
+
+        pos = rest.find(number_separator);
+        rest = rest.substr(pos+1);
+
+        pos = rest.find(new_line);
+        rest = rest.substr(pos+1);
+        size++;
+    }
+    rest=whole_file;
+    NodeSet ret = {0};
+    ret.nodes = new Node[size];
+    ret.size = size;
+    int index = 0;
+    while(rest.size() > 0) {
+        assert(index < size);
+        Node new_node = {0};
+        size_t pos = rest.find(number_separator);
+        int x = std::atoi(rest.substr(0, pos).c_str());
+        rest = rest.substr(pos+1);
+
+        pos = rest.find(number_separator);
+        int y = std::atoi(rest.substr(0, pos).c_str());
+        rest = rest.substr(pos+1);
+
+        pos = rest.find(new_line);
+        int cost = std::atoi(rest.substr(0, pos).c_str());
+        rest = rest.substr(pos+1);
+        new_node.x = x;
+        new_node.y = y;
+        new_node.cost = cost;
+        ret.nodes[index] = new_node;
+        index++;
+    }
+    return ret;
+}
+
+void print_node(Node node) {
+    std::cout << "x = " << node.x << "; y = " << node.y << 
+        "; cost = " << node.cost << std::endl;
 }
 
 int main() {
     char * whole_file = read_file("./TSPA.csv");
-    std::cout << whole_file;
+    NodeSet dataset = parse_dataset(whole_file);
+    for(int i = 0; i < dataset.size; i++) {
+        print_node(dataset.nodes[i]);
+    }
 
 }
