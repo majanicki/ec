@@ -154,7 +154,7 @@ CostMatrix compute_distance_matrix(const std::vector<Node> &dataset) {
             Node b = dataset[j];
             int value;
             if (a.id == b.id) value = 0;
-            else value = euc_distance(a, b);
+            else value = euc_distance(a, b) + b.cost;
             dist.data[b.id * dist.dim + a.id] = value;
         }
     }
@@ -169,7 +169,6 @@ int compute_total_cost(const Solution& solution, CostMatrix cost_matrix) {
         Node a = solution[i];
         Node b = solution[next];
         total += cost_matrix.get(a, b);
-        total += a.cost;
     }
     return total;
 }
@@ -211,12 +210,19 @@ Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dis
 }
 
 Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int max_y, int canvas_width, int canvas_height) {
-    float normalized_x = (float)(node.x - min_x) / (max_x - min_x);
-    float normalized_y = (float)(node.y - min_y) / (max_y - min_y);
-    int padding_x = (float)canvas_height * 0.1f;
-    int padding_y = (float)canvas_height * 0.1f;
-    int canvas_x = (canvas_width - 2 * padding_x) * normalized_x + padding_x;
-    int canvas_y = (canvas_height - 2 * padding_y) * normalized_y  + padding_y;
+
+    float padd = canvas_width > canvas_height ? canvas_width : canvas_height;
+    padd *= 0.05;
+    float step_size_x = (float)(canvas_width - 2.0f * padd)/(max_x - min_x);
+    float step_size_y = (float)(canvas_height- 2.0f * padd)/(max_y - min_y);
+
+    float step_size = step_size_x < step_size_y ? step_size_x : step_size_y;
+    // padd
+    // step_size *= 0.9f;
+    // int padding_x = (float)canvas_height * 0.1f;
+    // int padding_y = (float)canvas_height * 0.1f;
+    int canvas_x = step_size * (node.x - min_x) + padd;
+    int canvas_y = canvas_height - (step_size * (node.y - min_y) + padd);
     Vector2 ret = (Vector2){(float)canvas_x, (float)canvas_y};
     return ret;
 }
@@ -260,8 +266,12 @@ void visualize_solution(const Solution& solution, const std::vector<Node>& datas
         Node node = dataset[i];
         Vector2 pos = node_to_canvas(node, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
         float red = 225.0f * ((float)(node.cost - min_cost) / (max_cost-min_cost) ) + 15.0f;
-        DrawCircle(pos.x, pos.y, 5.0f, (Color){(unsigned char)red, 0, 0, 255});
+        unsigned char green = 255 - red;
+        DrawCircle(pos.x, pos.y, 5.0f, (Color){(unsigned char)red, green, 0, 255});
     }
+    Node start = solution[0];
+    Vector2 pos = node_to_canvas(start, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
+    DrawCircle(pos.x, pos.y, 7.5f, BLUE);
 }
 
 int main() {
