@@ -260,18 +260,18 @@ void visualize_solution(const Solution& solution, const std::vector<Node>& datas
         Vector2 pos_a = node_to_canvas(node_a, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
         Node node_b = solution[(i + 1) % solution.size()];
         Vector2 pos_b = node_to_canvas(node_b, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
-        DrawLineV(pos_a, pos_b, BLACK);
+        DrawLineEx(pos_a, pos_b, canvas_width * 0.001, BLACK);
     }
     for(size_t i = 0; i < dataset.size(); i++) {
         Node node = dataset[i];
         Vector2 pos = node_to_canvas(node, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
         float red = 225.0f * ((float)(node.cost - min_cost) / (max_cost-min_cost) ) + 15.0f;
         unsigned char green = 255 - red;
-        DrawCircle(pos.x, pos.y, 5.0f, (Color){(unsigned char)red, green, 0, 255});
+        DrawCircle(pos.x, pos.y, canvas_height * 0.0065, (Color){(unsigned char)red, green, 0, 255});
     }
     Node start = solution[0];
     Vector2 pos = node_to_canvas(start, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
-    DrawCircle(pos.x, pos.y, 7.5f, BLUE);
+    DrawCircle(pos.x, pos.y, canvas_height * 0.008, BLUE);
 }
 
 int main() {
@@ -302,13 +302,21 @@ int main() {
 
     int random_total_cost = compute_total_cost(random_solution, dist);
     std::printf("\nRandom solution total cost: %'d\n", random_total_cost);
+    const int img_width = 4000, img_height = 2000;
     InitWindow(1000, 900, "This is a title");
+    RenderTexture2D render_texture = LoadRenderTexture(img_width, img_height);
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(WHITE);
         visualize_solution(nn_solution, dataset, 1000, 900);
+        BeginTextureMode(render_texture);
+            ClearBackground(WHITE);
+            visualize_solution(nn_solution, dataset, img_width, img_height);
+        EndTextureMode();
         EndDrawing();
     }
+    Image final_image = LoadImageFromTexture(render_texture.texture);
+    ExportImage(final_image, "final.png");
 
 
     return 0;
