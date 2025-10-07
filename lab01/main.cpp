@@ -6,6 +6,9 @@
 #include <ctime>
 #include <vector>
 #include <climits>
+#include <cstring>
+#include <clocale>
+#include "raylib.h"
 
 #define panicf(__format, ...) \
     do { \
@@ -70,36 +73,15 @@ struct Node {
     int cost;
 };
 
-struct NodeSet {
-    int size;
-    Node *nodes;
-};
-
-NodeSet parse_dataset(char *in_file_contents) {
+std::vector<Node> parse_dataset(char *in_file_contents) {
     std::string whole_file(in_file_contents);
     std::string number_separator = ";";
     std::string new_line = "\n";
     std::string rest(whole_file);
-    int size = 0;
-    while(rest.size() > 0) {
-        // x
-        size_t pos = rest.find(number_separator);
-        rest = rest.substr(pos+1);
-
-        pos = rest.find(number_separator);
-        rest = rest.substr(pos+1);
-
-        pos = rest.find(new_line);
-        rest = rest.substr(pos+1);
-        size++;
-    }
     rest=whole_file;
-    NodeSet ret;
-    ret.nodes = new Node[size];
-    ret.size = size;
+    std::vector<Node> ret;
     int index = 0;
     while(rest.size() > 0) {
-        assert(index < size);
         Node new_node;
         new_node.id = index;
         size_t pos = rest.find(number_separator);
@@ -116,7 +98,7 @@ NodeSet parse_dataset(char *in_file_contents) {
         new_node.x = x;
         new_node.y = y;
         new_node.cost = cost;
-        ret.nodes[index] = new_node;
+        ret.push_back(new_node);
         index++;
     }
     return ret;
@@ -127,131 +109,197 @@ void print_node(Node node) {
         "; cost = " << node.cost << std::endl;
 }
 
-NodeSet get_random_solution(NodeSet dataset) {
-    NodeSet ret;
-    int target_size = std::ceil((double)dataset.size/2);
-    ret.nodes = new Node[target_size];
-    bool *present = new bool[dataset.size]();
-    int n_found = 0;
-    while(n_found < target_size) {
-        int rand = std::rand() % dataset.size;
-        while(present[rand]) {
-            rand = std::rand() % dataset.size;
-        }
-        present[rand] = true;
-        ret.nodes[n_found] = dataset.nodes[rand];
-        n_found++;
+typedef std::vector<Node> Solution;
+
+// no reference since we want to copy the dataset
+Solution get_random_solution(std::vector<Node> dataset) {
+    size_t target_size = std::ceil((double)dataset.size()/2);
+    Solution ret;
+    while(ret.size() < target_size) {
+        int rand = std::rand() % dataset.size();
+        ret.push_back(dataset[rand]);
+        dataset[rand] = dataset[dataset.size()-1];
+        dataset.pop_back();
     }
-    ret.size = target_size;
-    delete[] present;
     return ret;
 }
 
-int euc_distance(Node &a, Node &b) {
+int euc_distance(const Node &a, const Node &b) {
     double diff_x = a.x - b.x;
     double diff_y = a.y - b.y;
     return (int)std::round(std::sqrt(diff_x*diff_x + diff_y*diff_y));
 }
 
-std::vector<std::vector<int>> compute_distance_matrix(const NodeSet &dataset) {
-    std::vector<std::vector<int>> dist(dataset.size, std::vector<int>(dataset.size));
-    for (int i = 0; i < dataset.size; i++) {
-        for (int j = 0; j < dataset.size; j++) {
-            if (i == j) dist[i][j] = 0;
-            else dist[i][j] = euc_distance(dataset.nodes[i], dataset.nodes[j]);
+
+// 2D vectors are weird
+struct CostMatrix {
+    int dim;
+    int* data;
+    int get(Node &a, Node &b) {
+        assert(a.id < dim);
+        assert(b.id < dim);
+        assert(data != NULL);
+        return data[b.id * dim + a.id];
+    }
+};
+
+CostMatrix compute_distance_matrix(const std::vector<Node> &dataset) {
+    CostMatrix dist;
+    dist.dim = dataset.size();
+    dist.data = new int[dist.dim * dist.dim];
+    for (size_t i = 0; i < dataset.size(); i++) {
+        Node a = dataset[i];
+        for (size_t j = 0; j < dataset.size(); j++) {
+            // lets rely on index
+            Node b = dataset[j];
+            int value;
+            if (a.id == b.id) value = 0;
+            else value = euc_distance(a, b);
+            dist.data[b.id * dist.dim + a.id] = value;
         }
     }
     return dist;
 }
 
-int compute_total_cost(const std::vector<int> &path, const NodeSet &dataset, const std::vector<std::vector<int>> &dist) {
+int compute_total_cost(const Solution& solution, CostMatrix cost_matrix) {
     int total = 0;
-    int path_size = path.size();
+    int path_size = solution.size();
     for (int i = 0; i < path_size; i++) {
         int next = (i + 1) % path_size;
-        total += dist[path[i]][path[next]];
-        total += dataset.nodes[path[i]].cost;
+        Node a = solution[i];
+        Node b = solution[next];
+        total += cost_matrix.get(a, b);
+        total += a.cost;
     }
     return total;
 }
 
-NodeSet get_nearest_neighbor_end_only(NodeSet dataset, std::vector<std::vector<int>> dist) {
-    int target_size = std::ceil((double)dataset.size/2);
-    NodeSet result;
-    result.size = target_size;
-    result.nodes = new Node[target_size];
+Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dist) {
+    int target_size = std::ceil((double)dataset.size()/2);
+    Solution result;
 
-    std::vector<bool> visited_nodes(dataset.size, false);
-    int start = std::rand() % dataset.size;
+    std::vector<bool> visited_nodes(dataset.size(), false);
+    int start = std::rand() % dataset.size();
+    result.push_back(dataset[start]);
     visited_nodes[start] = true;
 
-    std::vector<int> path;
-    path.push_back(start);
 
-    while((int)path.size() < target_size) {
-        int last = path.back();
-        int nearest_node = -1;
+    while((int)result.size() < target_size) {
+        Node last = result.back();
+        Node nearest_node;
+        bool found = false;
         int nearest_distance = INT_MAX;
 
-        for (int j = 0; j < dataset.size; j++) {
+        for (size_t j = 0; j < dataset.size(); j++) {
             if (!visited_nodes[j]) {
-                int distance = dist[last][j];
+                Node candidate = dataset[j];
+                int distance = dist.get(last, candidate);
                 if (distance < nearest_distance) {
                     nearest_distance = distance;
-                    nearest_node = j;
+                    nearest_node = candidate;
+                    found = true;
                 }
             }
         }
 
-        if (nearest_node == -1) break;
-        visited_nodes[nearest_node] = true;
-        path.push_back(nearest_node);
+        if (!found) break;
+        visited_nodes[nearest_node.id] = true;
+        result.push_back(nearest_node);
     }
 
-    for (int i = 0; i < target_size; i++){   
-        result.nodes[i] = dataset.nodes[path[i]];
-    }
-    
     return result;
 }
 
+Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int max_y, int canvas_width, int canvas_height) {
+    float normalized_x = (float)(node.x - min_x) / (max_x - min_x);
+    float normalized_y = (float)(node.y - min_y) / (max_y - min_y);
+    int padding_x = (float)canvas_height * 0.1f;
+    int padding_y = (float)canvas_height * 0.1f;
+    int canvas_x = (canvas_width - 2 * padding_x) * normalized_x + padding_x;
+    int canvas_y = (canvas_height - 2 * padding_y) * normalized_y  + padding_y;
+    Vector2 ret = (Vector2){(float)canvas_x, (float)canvas_y};
+    return ret;
+}
+
+void visualize_solution(const Solution& solution, const std::vector<Node>& dataset, int canvas_width, int canvas_height) {
+    int max_x = 0;
+    int min_x = INT_MAX;
+    int max_y = 0;
+    int min_y = INT_MAX;
+    int max_cost = 0;
+    int min_cost = INT_MAX;
+    for(size_t i = 0; i < dataset.size(); i++) {
+        Node node = dataset[i];
+        if(node.x < min_x) {
+            min_x = node.x;
+        }
+        if(node.y < min_y) {
+            min_y = node.y;
+        }
+        if(node.x > max_x) {
+            max_x = node.x;
+        }
+        if(node.y > max_y) {
+            max_y = node.y;
+        }
+        if(node.cost > max_cost) {
+            max_cost = node.cost;
+        }
+        if(node.cost < min_cost) {
+            min_cost = node.cost;
+        }
+    }
+    for(size_t i = 0; i < solution.size(); i++) {
+        Node node_a = solution[i];
+        Vector2 pos_a = node_to_canvas(node_a, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
+        Node node_b = solution[(i + 1) % solution.size()];
+        Vector2 pos_b = node_to_canvas(node_b, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
+        DrawLineV(pos_a, pos_b, BLACK);
+    }
+    for(size_t i = 0; i < dataset.size(); i++) {
+        Node node = dataset[i];
+        Vector2 pos = node_to_canvas(node, min_x, max_x, min_y, max_y, canvas_width, canvas_height);
+        float red = 225.0f * ((float)(node.cost - min_cost) / (max_cost-min_cost) ) + 15.0f;
+        DrawCircle(pos.x, pos.y, 5.0f, (Color){(unsigned char)red, 0, 0, 255});
+    }
+}
 
 int main() {
     std::srand(42);
+    // ' separator for thousands
+    std::setlocale(LC_NUMERIC, ""); 
     char * whole_file = read_file("./TSPA.csv");
-    NodeSet dataset = parse_dataset(whole_file);
+    std::vector<Node> dataset = parse_dataset(whole_file);
     auto dist = compute_distance_matrix(dataset);
 
 
-    NodeSet nn_solution = get_nearest_neighbor_end_only(dataset, dist);
+    Solution nn_solution = get_nearest_neighbor_end_only(dataset, dist);
 
-    std::cout << "Nearest Neighbor (end-only) solution:\n";
-    for (int i = 0; i < nn_solution.size; i++) {
-        print_node(nn_solution.nodes[i]);
+    // std::cout << "Nearest Neighbor (end-only) solution:\n";
+    // for (int i = 0; i < nn_solution.size; i++) {
+    //     print_node(nn_solution.nodes[i]);
+    // }
+
+    int total_cost = compute_total_cost(nn_solution, dist);
+    std::printf("\nNearest Neighbors (only end) total cost: %'d\n", total_cost);
+
+
+    Solution random_solution = get_random_solution(dataset);
+    // std::cout << "Random solution:\n";
+    // for(int i = 0; i < random_solution.size; i++) {
+    //     print_node(random_solution.nodes[i]);
+    // }
+
+    int random_total_cost = compute_total_cost(random_solution, dist);
+    std::printf("\nRandom solution total cost: %'d\n", random_total_cost);
+    InitWindow(1000, 900, "This is a title");
+    while(!WindowShouldClose()) {
+        BeginDrawing();
+        ClearBackground(WHITE);
+        visualize_solution(nn_solution, dataset, 1000, 900);
+        EndDrawing();
     }
 
-    std::vector<int> nn_path;
-    for (int i = 0; i < nn_solution.size; i++) {
-        nn_path.push_back(nn_solution.nodes[i].id);
-    }
-    
-    int total_cost = compute_total_cost(nn_path, dataset, dist);
-    std::cout << "\bNearest Neighbors (only end) total cost: " << total_cost << std::endl;
 
-
-    NodeSet random_solution = get_random_solution(dataset);
-    std::cout << "Random solution:\n";
-    for(int i = 0; i < random_solution.size; i++) {
-        print_node(random_solution.nodes[i]);
-    }
-
-    std::vector<int> random_path;
-    for (int i = 0; i < random_solution.size; i++) {
-        random_path.push_back(random_solution.nodes[i].id);
-    }
-    
-    int random_total_cost = compute_total_cost(random_path, dataset, dist);
-    std::cout << "\nRandom solution total cost: " << random_total_cost << std::endl;
-    
     return 0;
 }
