@@ -209,7 +209,68 @@ Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dis
     return result;
 }
 
-Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int max_y, int canvas_width, int canvas_height) {
+Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist)
+{
+    int target_size = std::ceil((double)dataset.size() / 2);
+    Solution result;
+
+    std::vector<bool> visited_nodes(dataset.size(), false);
+    int start = std::rand() % dataset.size();
+    result.push_back(dataset[start]);
+    visited_nodes[start] = true;
+
+    while ((int)result.size() < target_size)
+    {
+        int best_node = -1;
+        int best_pos = -1;
+        int best_delta = INT_MAX;
+
+        // trying every possible unvisited
+        for (size_t n = 0; n < dataset.size(); n++)
+        {
+            if (visited_nodes[n])
+                continue;
+            Node candidate = dataset[n];
+
+            // try insert at every position
+            for (size_t pos = 0; pos <= result.size(); pos++)
+            {
+                int delta;
+                if (pos == 0)
+                {
+                    Node b = result[0];
+                    delta = dist.get(candidate, b);
+                }
+                else if (pos == result.size())
+                {
+                    Node b = result.back();
+                    delta = dist.get(b, candidate);
+                }
+                else
+                {
+                    Node a = result[pos - 1];
+                    Node b = result[pos];
+                    delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b);
+                }
+
+                if (delta < best_delta)
+                {
+                    best_delta = delta;
+                    best_node = n;
+                    best_pos = pos;
+                }
+            }
+        }
+
+        visited_nodes[best_node] = true;
+        result.insert(result.begin() + best_pos, dataset[best_node]);
+    }
+
+    return result;
+}
+
+Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int max_y, int canvas_width, int canvas_height)
+{
 
     float padd = canvas_width > canvas_height ? canvas_width : canvas_height;
     padd *= 0.05;
@@ -302,13 +363,18 @@ int main() {
 
     int random_total_cost = compute_total_cost(random_solution, dist);
     std::printf("\nRandom solution total cost: %'d\n", random_total_cost);
+
+    Solution nn_all_solution = get_nearest_neighbor_every_position(dataset, dist);
+    int nn_all_total_cost = compute_total_cost(nn_all_solution, dist);
+    std::printf("\nNearest Neighbors (all positions) total cost: %'d\n", nn_all_total_cost);
+
     const int img_width = 4000, img_height = 2000;
     InitWindow(1000, 900, "This is a title");
     RenderTexture2D render_texture = LoadRenderTexture(img_width, img_height);
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(WHITE);
-        visualize_solution(nn_solution, dataset, 1000, 900);
+        visualize_solution(nn_all_solution, dataset, 1000, 900);
         BeginTextureMode(render_texture);
             ClearBackground(WHITE);
             visualize_solution(nn_solution, dataset, img_width, img_height);
@@ -316,8 +382,7 @@ int main() {
         EndDrawing();
     }
     Image final_image = LoadImageFromTexture(render_texture.texture);
-    ExportImage(final_image, "final.png");
-
+    ExportImage(final_image, "nn_all_solution.png");
 
     return 0;
 }
