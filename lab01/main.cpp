@@ -209,53 +209,61 @@ Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dis
     return result;
 }
 
-Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist)
-{
+Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist) {
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
 
     std::vector<bool> visited_nodes(dataset.size(), false);
+
     int start = std::rand() % dataset.size();
     result.push_back(dataset[start]);
     visited_nodes[start] = true;
 
+    Node last_added = dataset[start];  // track the last added node
+
     while ((int)result.size() < target_size) {
-        int best_node = -1;
-        int best_pos = -1;
-        int best_delta = INT_MAX;
 
-        // trying every possible unvisited
-        for (size_t n = 0; n < dataset.size(); n++) {
-            if (visited_nodes[n]) continue;
-            Node candidate = dataset[n];
-
-            // try insert at every position
-            for (size_t pos = 0; pos <= result.size(); pos++) {
-                int delta;
-                if (pos == 0) {
-                    Node b = result[0];
-                    delta = dist.get(candidate, b);
-                }
-                else if (pos == result.size()) {
-                    Node b = result.back();
-                    delta = dist.get(b, candidate);
-                }
-                else {
-                    Node a = result[pos - 1];
-                    Node b = result[pos];
-                    delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b);
-                }
-
-                if (delta < best_delta) {
-                    best_delta = delta;
-                    best_node = n;
-                    best_pos = pos;
+        // find nearest unvisited node to the last added node
+        int nearest_idx = -1;
+        int nearest_distance = INT_MAX;
+        for (size_t i = 0; i < dataset.size(); i++) {
+            if (!visited_nodes[i]) {
+                int distance = dist.get(last_added, dataset[i]);
+                if (distance < nearest_distance) {
+                    nearest_distance = distance;
+                    nearest_idx = i;
                 }
             }
         }
 
-        visited_nodes[best_node] = true;
-        result.insert(result.begin() + best_pos, dataset[best_node]);
+        Node nearest_node = dataset[nearest_idx];
+
+        // find the best insertion position
+        int best_pos = 0;
+        int best_delta = INT_MAX;
+        for (size_t pos = 0; pos <= result.size(); pos++) {
+            int delta;
+            if (pos == 0) {
+                delta = dist.get(nearest_node, result[0]);
+            } 
+            else if (pos == result.size()) {
+                delta = dist.get(result.back(), nearest_node);
+            } 
+            else {
+                Node a = result[pos - 1];
+                Node b = result[pos];
+                delta = dist.get(a, nearest_node) + dist.get(nearest_node, b) - dist.get(a, b);
+            }
+
+            if (delta < best_delta) {
+                best_delta = delta;
+                best_pos = pos;
+            }
+        }
+
+        result.insert(result.begin() + best_pos, nearest_node);
+        visited_nodes[nearest_idx] = true;
+        last_added = nearest_node;
     }
 
     return result;
