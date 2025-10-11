@@ -219,42 +219,34 @@ Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatr
     result.push_back(dataset[start]);
     visited_nodes[start] = true;
 
-    while ((int)result.size() < target_size)
-    {
+    while ((int)result.size() < target_size) {
         int best_node = -1;
         int best_pos = -1;
         int best_delta = INT_MAX;
 
         // trying every possible unvisited
-        for (size_t n = 0; n < dataset.size(); n++)
-        {
-            if (visited_nodes[n])
-                continue;
+        for (size_t n = 0; n < dataset.size(); n++) {
+            if (visited_nodes[n]) continue;
             Node candidate = dataset[n];
 
             // try insert at every position
-            for (size_t pos = 0; pos <= result.size(); pos++)
-            {
+            for (size_t pos = 0; pos <= result.size(); pos++) {
                 int delta;
-                if (pos == 0)
-                {
+                if (pos == 0) {
                     Node b = result[0];
                     delta = dist.get(candidate, b);
                 }
-                else if (pos == result.size())
-                {
+                else if (pos == result.size()) {
                     Node b = result.back();
                     delta = dist.get(b, candidate);
                 }
-                else
-                {
+                else {
                     Node a = result[pos - 1];
                     Node b = result[pos];
                     delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b);
                 }
 
-                if (delta < best_delta)
-                {
+                if (delta < best_delta) {
                     best_delta = delta;
                     best_node = n;
                     best_pos = pos;
@@ -269,13 +261,72 @@ Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatr
     return result;
 }
 
+Solution get_greedy_cycle(std::vector<Node> dataset, CostMatrix dist)
+{
+    int target_size = std::ceil((double)dataset.size() / 2);
+    Solution result;
+    std::vector<bool> visited_nodes(dataset.size(), false);
+
+    // choose random start node
+    int start = std::rand() % dataset.size();
+    Node start_node = dataset[start];
+    visited_nodes[start] = true;
+
+    // find nearest neighbor to the starting node to form initial cycle
+    int nearest_idx = -1;
+    int nearest_dist = INT_MAX;
+    for (size_t i = 0; i < dataset.size(); i++) {
+        if (visited_nodes[i]) continue;
+        int d = dist.get(start_node, dataset[i]);
+        if (d < nearest_dist) {
+            nearest_dist = d;
+            nearest_idx = i;
+        }
+    }
+
+    visited_nodes[nearest_idx] = true;
+    result.push_back(start_node);
+    result.push_back(dataset[nearest_idx]);
+
+    while ((int)result.size() < target_size) {
+        int best_node = -1;
+        int best_pos = -1;
+        int best_delta = INT_MAX;
+
+        for (size_t j = 0; j < dataset.size(); j++) { 
+            if (visited_nodes[j]) continue; // for every node that has not been visited yet
+            Node candidate = dataset[j];
+
+            for (size_t pos = 0; pos < result.size(); pos++) {
+                // try inserting it between every two nodes in the current cycle 
+                Node a = result[pos];
+                Node b = result[(pos + 1) % result.size()]; // go to the beginning if at the end
+
+                int delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b);
+                if (delta < best_delta) {
+                    best_delta = delta;
+                    best_node = j;
+                    best_pos = pos + 1;
+                }
+            }
+        }
+
+        if (best_pos == -1) break;
+        visited_nodes[best_node] = true;
+        result.insert(result.begin() + best_pos, dataset[best_node]);
+    }
+
+    return result;
+}
+
+
 Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int max_y, int canvas_width, int canvas_height)
 {
 
     float padd = canvas_width > canvas_height ? canvas_width : canvas_height;
     padd *= 0.05;
-    float step_size_x = (float)(canvas_width - 2.0f * padd)/(max_x - min_x);
-    float step_size_y = (float)(canvas_height- 2.0f * padd)/(max_y - min_y);
+    float step_size_x = (float)(canvas_width - 2.0f * padd) / (max_x - min_x);
+    float step_size_y = (float)(canvas_height - 2.0f * padd) / (max_y - min_y);
 
     float step_size = step_size_x < step_size_y ? step_size_x : step_size_y;
     // padd
@@ -339,7 +390,7 @@ int main() {
     std::srand(42);
     // ' separator for thousands
     std::setlocale(LC_NUMERIC, ""); 
-    char * whole_file = read_file("./TSPA.csv");
+    char * whole_file = read_file("./TSPB.csv");
     std::vector<Node> dataset = parse_dataset(whole_file);
     auto dist = compute_distance_matrix(dataset);
 
@@ -368,21 +419,25 @@ int main() {
     int nn_all_total_cost = compute_total_cost(nn_all_solution, dist);
     std::printf("\nNearest Neighbors (all positions) total cost: %'d\n", nn_all_total_cost);
 
+    Solution greedy_cycle_solution = get_greedy_cycle(dataset, dist);
+    int greedy_cycle_total_cost = compute_total_cost(greedy_cycle_solution, dist);
+    std::printf("\nGreedy Cycle total cost: %'d\n", greedy_cycle_total_cost);
+
     const int img_width = 4000, img_height = 2000;
     InitWindow(1000, 900, "This is a title");
     RenderTexture2D render_texture = LoadRenderTexture(img_width, img_height);
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(WHITE);
-        visualize_solution(nn_all_solution, dataset, 1000, 900);
+        visualize_solution(greedy_cycle_solution, dataset, 1000, 900);
         BeginTextureMode(render_texture);
-            ClearBackground(WHITE);
-            visualize_solution(nn_solution, dataset, img_width, img_height);
+        ClearBackground(WHITE);
+        visualize_solution(greedy_cycle_solution, dataset, img_width, img_height);
         EndTextureMode();
         EndDrawing();
     }
     Image final_image = LoadImageFromTexture(render_texture.texture);
-    ExportImage(final_image, "nn_all_solution.png");
+    ExportImage(final_image, "greedy_cycle_solution.png");
 
     return 0;
 }
