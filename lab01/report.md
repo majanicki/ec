@@ -2,6 +2,7 @@
 Maciej Janicki 156073 
 Jakub Kubiak 156049
 [Source code](https://github.com/majanicki/ec/tree/trunk/lab01)
+
 # Problem Description
 Given a set of nodes, each having a set of coordinates ($x$, $y$) and inherent cost, pick exactly half of the nodes to form a Hamiltonian cycle. 
 
