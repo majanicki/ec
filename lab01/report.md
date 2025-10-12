@@ -117,6 +117,8 @@ END FUNCTION
 
 # Result Comparison
 
+## TSPA
+
 | Algorithm                       | Min Cost | Mean Cost | Max Cost |
 |---------------------------------|-----------:|-----------:|-----------:|
 | Random                          | 241,347    | 265,135    | 291,966    |
@@ -124,6 +126,14 @@ END FUNCTION
 | Nearest Neighbor #2             | 78,896     | 80,974.4   | 82,368     |
 | Greedy Cycle                    | 71,488     | 72,646.4   | 74,410     |
 
+## TSPB
+
+| Algorithm                       | Min Cost | Mean Cost | Max Cost |
+|---------------------------------|-----------:|-----------:|-----------:|
+| Random                          | 190,834    | 213,771    | 241,363    |
+| Nearest Neighbor #1             | 52,319     | 54,390.4   | 59,030     |
+| Nearest Neighbor #2             | 52,992     | 55,015.8   | 57,460     |
+| Greedy Cycle                    | 49,001     | 51,400.6   | 57,324     |
 
 ## Best solutions 
 
