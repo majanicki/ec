@@ -120,8 +120,13 @@ Solution get_random_solution(std::vector<Node> dataset) {
         std::uniform_int_distribution<int> dist(0, dataset.size() - 1);
         int rand = dist(rng);
         ret.push_back(dataset[rand]);
-        dataset[rand] = dataset[dataset.size()-1];
-        dataset.pop_back();
+
+        if((size_t)rand == (dataset.size() - 1)) {
+            dataset.pop_back();
+        } else {
+            dataset[rand] = dataset[dataset.size() - 1];
+            dataset.pop_back();
+        }
     }
     return ret;
 }
@@ -139,7 +144,7 @@ int euc_distance(const Node &a, const Node &b) {
 struct CostMatrix {
     int dim;
     int* data;
-    int get(Node &a, Node &b) {
+    int get(const Node &a, const Node &b) {
         assert(a.id < dim);
         assert(b.id < dim);
         assert(data != NULL);
@@ -212,38 +217,43 @@ Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dis
     return result;
 }
 
-Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist, int start) {
-    int target_size = std::ceil((double)dataset.size() / 2);
+Solution get_nearest_neighbor_every_position(const std::vector<Node>& dataset, CostMatrix dist, int start) {
+    int target_size = (dataset.size() + 1) / 2;
     Solution result;
+    std::vector<bool> used(dataset.size(), false);
 
     result.push_back(dataset[start]);
+    used[start] = true;
 
     while ((int)result.size() < target_size) {
         int best_new_index = -1;
         int insert_after   = -1;
         int min_dist = INT_MAX;
+
         for (size_t i = 0; i < result.size(); i++) {
             Node current_node = result[i];
-            for(size_t j = 0; j < dataset.size(); j++) {
-                Node candidate = dataset[j];
-                int cost = dist.get(current_node, candidate);
-                if(cost < min_dist) {
+            for (size_t j = 0; j < dataset.size(); j++) {
+                if (used[j]) continue;
+
+                int cost = dist.get(current_node, dataset[j]);
+                if (cost < min_dist) {
                     min_dist = cost;
                     insert_after = i;
                     best_new_index = j;
                 }
             }
         }
+
         assert(best_new_index != -1);
         assert(insert_after != -1);
-        Node insert = dataset[best_new_index];
-        dataset[best_new_index] = dataset[dataset.size() - 1];
-        dataset.pop_back();
-        result.insert(result.begin() + insert_after, insert);
+
+        result.insert(result.begin() + insert_after + 1, dataset[best_new_index]);
+        used[best_new_index] = true;
     }
 
     return result;
 }
+
 
 Solution get_greedy_cycle(std::vector<Node> dataset, CostMatrix dist, int start)
 {

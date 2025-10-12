@@ -1,15 +1,7 @@
-• Pseudocode of all implemented algorithms
-• Results of a computational experiment: for each instance and method min, max and average
-value of the objective function.
-• 2D visualization of the best solution for each instance and method. Cost of nodes should be
-presented e.g. by a color, greyscale, or size.
-• The best solutions for each instance and method presented as a list of nodes indices (starting
-from 0).
-• Information whether the best solutions have been checked with the solution checker.
-• (Link to) the source code
-• Conclusions
-
-
+# Report Laboratories 1
+Maciej Janicki 156073 
+Jakub Kubiak 156049
+[Source code](https://github.com/majanicki/ec/tree/trunk/lab01)
 # Problem Description
 Given a set of nodes, each having a set of coordinates ($x$, $y$) and inherent cost, pick exactly half of the nodes to form a Hamiltonian cycle. 
 
@@ -63,22 +55,26 @@ END FUNCTION
 FUNCTION nearest_neighbor_every_position(dataset, dist):
     target_size := half of dataset size (round up)
     result := empty list
-    visited := empty set
 
     start := random node
     ADD start TO result
-    ADD start TO visited
-    last_added :=  start 
 
     WHILE size of result < target_size:
-        nearest_node := unvisited node closes to last_added
-        best_pos := position of nearest node that minimizes added distance
-
-        INSERT nearest_node INTO result at best_pos
-        ADD best_node TO visited
-        last_added :=
+        best_candidate := None
+        best_distance := INFINITY
+        insert_position := None
+        FOR EACH current_node IN result:
+            FOR EACH candidate IN dataset:
+                IF dist[current_node, candidate] < best_distance:
+                    best_distance := dist[current_node, candidate]
+                    insert_position := after current_node position
+                    best_candidate := candidate
+                END IF
+            END FOR
+        END FOR
+        REMOVE best_candidate FROM dataset
+        INSERT best_candidate INTO result AT insert_position
     END WHILE
-
     RETURN result
 END FUNCTION
 ```
@@ -123,8 +119,8 @@ END FUNCTION
 | Algorithm                       | Min Cost | Mean Cost | Max Cost |
 |---------------------------------|-----------:|-----------:|-----------:|
 | Random                          | 241,347    | 265,135    | 291,966    |
-| Nearest Neighbor #1       | 83,182     | 85,108.5   | 89,433     |
-| Nearest Neighbor #2  | 74,252     | 77,517.7   | 80,442     |
+| Nearest Neighbor #1             | 83,182     | 85,108.5   | 89,433     |
+| Nearest Neighbor #2             | 78,896     | 80,974.4   | 82,368     |
 | Greedy Cycle                    | 71,488     | 72,646.4   | 74,410     |
 
 
@@ -132,6 +128,7 @@ END FUNCTION
 
 This section presents best solution found by each method. 
 In visualizations greener nodes have lower cost than red nodes.
+The solutions were checked with solution checker.
 
 ### Random
 
@@ -355,109 +352,109 @@ The lowest cost is `83,182`.
 
 ### Nearest neighbor #2
 
-The lowest cost is `74,252`.
+The lowest cost is `78,896`.
 
 ```
 118
 51
-80
 176
+137
+183
+89
+23
+186
+143
+117
+93
+140
+0
+80
 151
+162
 133
-79
 63
+79
 94
-152
+124
+53
 97
+26
+100
+152
 1
 2
-129
+120
+44
+25
+78
+16
+171
+175
+113
+56
+31
+145
+179
 92
+129
 57
-55
+185
+106
 52
+55
+178
 49
 102
-148
-15
-9
-62
-144
 14
-178
-106
-185
+62
+9
+148
+144
+40
+119
+81
+196
 165
 90
-40
-81
-31
-113
-175
-171
-16
-145
-78
-44
-120
-75
 101
 86
-53
+75
 180
 154
 135
-162
+70
 123
-127
 112
 4
 84
-35
+127
+59
+65
 149
 131
-65
 116
+43
 42
 181
-195
-159
+160
+54
+30
+177
+10
+190
+184
+34
 193
+159
+22
+146
+18
+108
 41
 139
-96
-5
-43
-184
-177
-190
-10
-30
-54
-48
-160
-34
-103
-146
-22
-18
-69
-108
-68
-140
-93
-117
-0
-143
-183
-89
-114
-186
-23
-137
 46
+68
 115
-59
 118
 ```
 
@@ -465,7 +462,7 @@ The lowest cost is `74,252`.
 
 ### Greedy cycle
 
-The lowest cost is `74,252`.
+The lowest cost is `71,488`.
 ```
 0
 117
@@ -574,4 +571,7 @@ The lowest cost is `74,252`.
 
 # Conclusions
 
-
+Random Algorithm achieves very poor results compared even to the most basic greedy algorithm.
+Nearest Neighbor #1, Nearest Neighbor #2 and Greedy improve in results in this order.
+Visual inspection suggests that Nearest Neighbor approaches generate long "jumps", especially when finally closing the cycle.
+Greedy cycle does not behave this way.
