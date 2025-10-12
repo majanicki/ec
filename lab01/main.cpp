@@ -216,56 +216,30 @@ Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatr
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
 
-    std::vector<bool> visited_nodes(dataset.size(), false);
-
     result.push_back(dataset[start]);
-    visited_nodes[start] = true;
-
-    Node last_added = dataset[start];  // track the last added node
 
     while ((int)result.size() < target_size) {
-
-        // find nearest unvisited node to the last added node
-        int nearest_idx = -1;
-        int nearest_distance = INT_MAX;
-        for (size_t i = 0; i < dataset.size(); i++) {
-            if (!visited_nodes[i]) {
-                int distance = dist.get(last_added, dataset[i]);
-                if (distance < nearest_distance) {
-                    nearest_distance = distance;
-                    nearest_idx = i;
+        int best_new_index = -1;
+        int insert_after   = -1;
+        int min_dist = INT_MAX;
+        for (size_t i = 0; i < result.size(); i++) {
+            Node current_node = result[i];
+            for(size_t j = 0; j < dataset.size(); j++) {
+                Node candidate = dataset[j];
+                int cost = dist.get(current_node, candidate);
+                if(cost < min_dist) {
+                    min_dist = cost;
+                    insert_after = i;
+                    best_new_index = j;
                 }
             }
         }
-
-        Node nearest_node = dataset[nearest_idx];
-
-        // find the best insertion position
-        int best_pos = 0;
-        int best_delta = INT_MAX;
-        for (size_t pos = 0; pos <= result.size(); pos++) {
-            int delta;
-            if (pos == 0) {
-                delta = dist.get(nearest_node, result[0]);
-            } 
-            else if (pos == result.size()) {
-                delta = dist.get(result.back(), nearest_node);
-            } 
-            else {
-                Node a = result[pos - 1];
-                Node b = result[pos];
-                delta = dist.get(a, nearest_node) + dist.get(nearest_node, b) - dist.get(a, b);
-            }
-
-            if (delta < best_delta) {
-                best_delta = delta;
-                best_pos = pos;
-            }
-        }
-
-        result.insert(result.begin() + best_pos, nearest_node);
-        visited_nodes[nearest_idx] = true;
-        last_added = nearest_node;
+        assert(best_new_index != -1);
+        assert(insert_after != -1);
+        Node insert = dataset[best_new_index];
+        dataset[best_new_index] = dataset[dataset.size() - 1];
+        dataset.pop_back();
+        result.insert(result.begin() + insert_after, insert);
     }
 
     return result;
