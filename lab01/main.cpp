@@ -7,7 +7,7 @@
 #include <vector>
 #include <climits>
 #include <cstring>
-#include <clocale>
+#include <fstream>
 #include "raylib.h"
 
 #define panicf(__format, ...) \
@@ -173,12 +173,11 @@ int compute_total_cost(const Solution& solution, CostMatrix cost_matrix) {
     return total;
 }
 
-Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dist) {
+Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dist, int start) {
     int target_size = std::ceil((double)dataset.size()/2);
     Solution result;
 
     std::vector<bool> visited_nodes(dataset.size(), false);
-    int start = std::rand() % dataset.size();
     result.push_back(dataset[start]);
     visited_nodes[start] = true;
 
@@ -209,13 +208,12 @@ Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dis
     return result;
 }
 
-Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist) {
+Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatrix dist, int start) {
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
 
     std::vector<bool> visited_nodes(dataset.size(), false);
 
-    int start = std::rand() % dataset.size();
     result.push_back(dataset[start]);
     visited_nodes[start] = true;
 
@@ -269,14 +267,13 @@ Solution get_nearest_neighbor_every_position(std::vector<Node> dataset, CostMatr
     return result;
 }
 
-Solution get_greedy_cycle(std::vector<Node> dataset, CostMatrix dist)
+Solution get_greedy_cycle(std::vector<Node> dataset, CostMatrix dist, int start)
 {
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
     std::vector<bool> visited_nodes(dataset.size(), false);
 
     // choose random start node
-    int start = std::rand() % dataset.size();
     Node start_node = dataset[start];
     visited_nodes[start] = true;
 
@@ -394,44 +391,64 @@ void visualize_solution(const Solution& solution, const std::vector<Node>& datas
     DrawCircle(pos.x, pos.y, canvas_height * 0.008, BLUE);
 }
 
-struct MeanResults {
-    double random_mean;
-    double nn_end_only_mean;
-    double nn_all_positions_mean;
-    double greedy_cycle_mean;
-};
 
-MeanResults benchmark_solutions(std::vector<Node> dataset, CostMatrix dist, int iterations = 200) {
-    double random_sum = 0;
-    double nn_end_only_sum = 0;
-    double nn_all_positions_sum = 0;
-    double greedy_cycle_sum = 0;
 
-    for (int i = 0; i < iterations; i++) {
-        Solution random_solution = get_random_solution(dataset);
-        random_sum += compute_total_cost(random_solution, dist);
-
-        Solution nn_end_only_solution = get_nearest_neighbor_end_only(dataset, dist);
-        nn_end_only_sum += compute_total_cost(nn_end_only_solution, dist);
-
-        Solution nn_all_solution = get_nearest_neighbor_every_position(dataset, dist);
-        nn_all_positions_sum += compute_total_cost(nn_all_solution, dist);
-
-        Solution greedy_cycle_solution = get_greedy_cycle(dataset, dist);
-        greedy_cycle_sum += compute_total_cost(greedy_cycle_solution, dist);
+double measure_mean(const std::vector<Solution>& solutions, CostMatrix dist) {
+    double score = 0.0;
+    for (size_t i = 0;  i < solutions.size(); i++) {
+        score += compute_total_cost(solutions[i], dist);
     }
-
-    MeanResults results;
-    results.random_mean = random_sum / iterations;
-    results.nn_end_only_mean = nn_end_only_sum / iterations;
-    results.nn_all_positions_mean = nn_all_positions_sum / iterations;
-    results.greedy_cycle_mean = greedy_cycle_sum / iterations;
-
-    return results;
+    return score / (float)solutions.size();
 }
 
+int measure_max(const std::vector<Solution>& solutions, CostMatrix dist) {
+    int max = 0;
+    for (size_t i = 0; i < solutions.size(); i++) {
+        int score = compute_total_cost(solutions[i], dist);
+        if (score > max) {
+            max = score;
+        }
+    }
+    return max;
+}
 
-void save_solution_to_png(Solution solution, std::vector<Node> dataset, const char *filename) {
+int measure_min(const std::vector<Solution>& solutions, CostMatrix dist) {
+    int min = INT_MAX;
+    for (size_t i = 0; i < solutions.size(); i++) {
+        int score = compute_total_cost(solutions[i], dist);
+        if (score < min) {
+            min = score;
+        }
+    }
+    return min;
+}
+
+Solution get_best_solution(const std::vector<Solution>& solutions, CostMatrix dist) {
+    int min = INT_MAX;
+    Solution best;
+    for (size_t i = 0; i < solutions.size(); i++) {
+        int score = compute_total_cost(solutions[i], dist);
+        if (score < min) {
+            min = score;
+            best = solutions[i];
+        }
+    }
+    return best;
+}
+
+void save_solution_to_txt(Solution solution, const std::string& filename) {
+    std::ofstream file(filename);            // create and open file
+    if (!file) {
+        panicf("Failed to open a file %s\n", filename.c_str());
+    }
+    for (size_t i = 0; i < solution.size(); i++) {
+        file << solution[i].id << "\n";
+    }
+    infof("Saved %s", filename.c_str());
+    file.close();
+}
+
+void save_solution_to_png(Solution solution, const std::vector<Node>& dataset, const std::string &filename) {
     RenderTexture2D render_texture = LoadRenderTexture(4000, 2000);
 
     BeginTextureMode(render_texture);
@@ -440,17 +457,56 @@ void save_solution_to_png(Solution solution, std::vector<Node> dataset, const ch
     EndTextureMode();
 
     Image final_image = LoadImageFromTexture(render_texture.texture);
-    ExportImage(final_image, filename);
+    ExportImage(final_image, filename.c_str());
 
     UnloadImage(final_image);
     UnloadRenderTexture(render_texture);
+    infof("Saved %s", filename.c_str());
 }
+
+void print_stats(const std::vector<Solution>& solutions, const std::vector<Node> &dataset, CostMatrix dist, const std::string& name) {
+    std::cout << name << " min cost: "  << measure_min (solutions, dist) << std::endl;
+    std::cout << name << " mean cost: " << measure_mean(solutions, dist) << std::endl;
+    std::cout << name << " max cost: "  << measure_max (solutions, dist) << std::endl;
+    Solution best_solution = get_best_solution(solutions, dist);
+    save_solution_to_txt(best_solution, name + ".txt");
+    save_solution_to_png(best_solution, dataset ,name + ".png");
+}
+
+void benchmark_solutions(const std::vector<Node>& dataset, CostMatrix dist) {
+    std::vector<Solution> solutions_random;
+    std::vector<Solution> solutions_nearest_neighbor_end_only;
+    std::vector<Solution> solutions_nearest_neighbor_every_position;
+    std::vector<Solution> solutions_greedy_cycle;
+    for (size_t i = 0; i < dataset.size(); i++) {
+        Solution random_solution = get_random_solution(dataset);
+        solutions_random.push_back(random_solution);
+
+        Solution nn_end_only_solution = get_nearest_neighbor_end_only(dataset, dist, i);
+        solutions_nearest_neighbor_end_only.push_back(nn_end_only_solution);
+
+        Solution nn_all_solution = get_nearest_neighbor_every_position(dataset, dist, i);
+        solutions_nearest_neighbor_every_position.push_back(nn_all_solution);
+
+        Solution greedy_cycle_solution = get_greedy_cycle(dataset, dist, i);
+        solutions_greedy_cycle.push_back(greedy_cycle_solution);
+    }
+    print_stats(solutions_random, dataset, dist, "random");
+    std::cout << std::endl;
+    print_stats(solutions_nearest_neighbor_end_only, dataset, dist, "nearest_neighbor_end_only");
+    std::cout << std::endl;
+    print_stats(solutions_nearest_neighbor_every_position, dataset, dist, "nearest_neighbor_all_positions");
+    std::cout << std::endl;
+    print_stats(solutions_greedy_cycle, dataset, dist, "greedy_cycle");
+
+}
+
+
 
 
 
 int main() {
     std::srand(42);
-    std::setlocale(LC_NUMERIC, ""); 
     char * whole_file = read_file("./TSPA.csv");
     std::vector<Node> dataset = parse_dataset(whole_file);
     auto dist = compute_distance_matrix(dataset);
@@ -459,24 +515,6 @@ int main() {
     InitWindow(1, 1, "This is a title");
     SetWindowState(FLAG_WINDOW_HIDDEN);
 
-    int iterations = 200;
-    MeanResults means = benchmark_solutions(dataset, dist, iterations);
-
-    std::printf("\nAverage total costs over %d runs:\n", iterations);
-    std::printf("Random solution: %.2f\n", means.random_mean);
-    std::printf("Nearest Neighbor (end-only): %.2f\n", means.nn_end_only_mean);
-    std::printf("Nearest Neighbor (all positions): %.2f\n", means.nn_all_positions_mean);
-    std::printf("Greedy Cycle: %.2f\n", means.greedy_cycle_mean);
-
-    // plot each solution once
-    Solution random_solution = get_random_solution(dataset);
-    Solution nn_end_only_solution = get_nearest_neighbor_end_only(dataset, dist);
-    Solution nn_all_solution = get_nearest_neighbor_every_position(dataset, dist);
-    Solution greedy_cycle_solution = get_greedy_cycle(dataset, dist);
-
-    save_solution_to_png(random_solution, dataset, "random_solution.png");
-    save_solution_to_png(nn_end_only_solution, dataset, "nn_end_only_solution.png");
-    save_solution_to_png(nn_all_solution, dataset, "nn_all_positions_solution.png");
-    save_solution_to_png(greedy_cycle_solution, dataset, "greedy_cycle_solution.png");
+    benchmark_solutions(dataset, dist);
     return 0;
 }

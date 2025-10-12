@@ -1,5 +1,5 @@
 ifeq ($(OS),Windows_NT)
-    RAYLIB = lib_win/libraylib.a -lm lgdi32 -lwinmm
+    RAYLIB = lib_win/libraylib.a -lm -lgdi32 -lwinmm
 else
     RAYLIB = ./lib_linux/libraylib.a -lm
 endif
