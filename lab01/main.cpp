@@ -3,12 +3,12 @@
 #include <cstdlib>
 #include <cassert>
 #include <cmath>
-#include <ctime>
 #include <vector>
 #include <climits>
 #include <cstring>
 #include <fstream>
 #include "raylib.h"
+#include <random>
 
 #define panicf(__format, ...) \
     do { \
@@ -111,12 +111,14 @@ void print_node(Node node) {
 
 typedef std::vector<Node> Solution;
 
+std::mt19937 rng(42);  // seed = 42
 // no reference since we want to copy the dataset
 Solution get_random_solution(std::vector<Node> dataset) {
     size_t target_size = std::ceil((double)dataset.size()/2);
     Solution ret;
     while(ret.size() < target_size) {
-        int rand = std::rand() % dataset.size();
+        std::uniform_int_distribution<int> dist(0, dataset.size() - 1);
+        int rand = dist(rng);
         ret.push_back(dataset[rand]);
         dataset[rand] = dataset[dataset.size()-1];
         dataset.pop_back();
@@ -127,7 +129,9 @@ Solution get_random_solution(std::vector<Node> dataset) {
 int euc_distance(const Node &a, const Node &b) {
     double diff_x = a.x - b.x;
     double diff_y = a.y - b.y;
-    return (int)std::round(std::sqrt(diff_x*diff_x + diff_y*diff_y));
+    double distance = std::sqrt(diff_x*diff_x + diff_y*diff_y);
+    int result = static_cast<int>(std::floor(distance + 0.5)); // dokładne odwzorowanie ZAOKR.DO.CAŁK
+    return result;
 }
 
 
@@ -444,6 +448,7 @@ void save_solution_to_txt(Solution solution, const std::string& filename) {
     for (size_t i = 0; i < solution.size(); i++) {
         file << solution[i].id << "\n";
     }
+    file << solution[0].id << "\n";
     infof("Saved %s", filename.c_str());
     file.close();
 }
@@ -473,7 +478,7 @@ void print_stats(const std::vector<Solution>& solutions, const std::vector<Node>
     save_solution_to_png(best_solution, dataset ,name + ".png");
 }
 
-void benchmark_solutions(const std::vector<Node>& dataset, CostMatrix dist) {
+void benchmark_solutions(const std::vector<Node> dataset, CostMatrix dist) {
     std::vector<Solution> solutions_random;
     std::vector<Solution> solutions_nearest_neighbor_end_only;
     std::vector<Solution> solutions_nearest_neighbor_every_position;

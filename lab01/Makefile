@@ -5,4 +5,4 @@ else
 endif
 
 all:
-	g++ main.cpp -o main -Wall -Wextra -O3 -march=native -Iinclude ${RAYLIB}
+	g++ main.cpp -o main -Wall -Wextra  -Iinclude ${RAYLIB}
