@@ -182,7 +182,7 @@ int compute_total_cost(const Solution& solution, CostMatrix cost_matrix) {
     return total;
 }
 
-Solution get_nearest_neighbor_end_only(std::vector<Node> dataset, CostMatrix dist, int start) {
+Solution get_nearest_neighbor_end_only(const std::vector<Node>& dataset, CostMatrix dist, int start) {
     int target_size = std::ceil((double)dataset.size()/2);
     Solution result;
 
@@ -255,7 +255,7 @@ Solution get_nearest_neighbor_every_position(const std::vector<Node>& dataset, C
 }
 
 
-Solution get_greedy_cycle(std::vector<Node> dataset, CostMatrix dist, int start)
+Solution get_greedy_cycle(const std::vector<Node>& dataset, CostMatrix dist, int start)
 {
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
