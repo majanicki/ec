@@ -32,7 +32,6 @@ void benchmark_solutions(const std::vector<Node> dataset, CostMatrix dist, const
 }
 
 int main() {
-    std::srand(42);
     char * whole_file = read_file("./TSPA.csv");
     std::vector<Node> dataset = parse_dataset(whole_file);
     auto dist = compute_distance_matrix(dataset);

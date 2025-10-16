@@ -419,7 +419,7 @@ Solution get_nearest_neighbor_every_position_new(const Dataset& dataset, CostMat
         int insert_after   = -1;
         int min_dist = INT_MAX;
 
-        for (int i = 0; i < (int)result.size()-1; i++) {
+        for (int i = -1; i < (int)result.size(); i++) {
             // before beginning case
             if(i == -1) {
                 Node beginning = result[0];
@@ -445,7 +445,7 @@ Solution get_nearest_neighbor_every_position_new(const Dataset& dataset, CostMat
                 }
             } else {
                 Node current_node = result[i];
-                Node next_node = result[i];
+                Node next_node = result[i+1];
                 for (size_t j = 0; j < dataset.size(); j++) {
                     if (used[j]) continue;
 
@@ -460,9 +460,6 @@ Solution get_nearest_neighbor_every_position_new(const Dataset& dataset, CostMat
                 }
             }
         }
-
-        assert(best_new_index != -1);
-        assert(insert_after != -1);
 
         result.insert(result.begin() + insert_after + 1, dataset[best_new_index]);
         used[best_new_index] = true;
