@@ -39,7 +39,9 @@ struct Node {
     int y;
     int cost;
 };
+
 typedef std::vector<Node> Solution;
+typedef std::vector<Node> Dataset;
 
 void print_node(Node node) {
     std::cout << "x = " << node.x << "; y = " << node.y << 
@@ -79,13 +81,13 @@ char* read_file(const char filename[]) {
 }
 
 
-std::vector<Node> parse_dataset(char *in_file_contents) {
+Dataset parse_dataset(char *in_file_contents) {
     std::string whole_file(in_file_contents);
     std::string number_separator = ";";
     std::string new_line = "\n";
     std::string rest(whole_file);
     rest=whole_file;
-    std::vector<Node> ret;
+    Dataset ret;
     int index = 0;
     while(rest.size() > 0) {
         Node new_node;
@@ -132,7 +134,7 @@ struct CostMatrix {
     }
 };
 
-CostMatrix compute_distance_matrix(const std::vector<Node> &dataset) {
+CostMatrix compute_distance_matrix(const Dataset &dataset) {
     CostMatrix dist;
     dist.dim = dataset.size();
     dist.data = new int[dist.dim * dist.dim];
@@ -181,7 +183,7 @@ Vector2 node_to_canvas(const Node &node, int min_x, int max_x, int min_y, int ma
     return ret;
 }
 
-void visualize_solution(const Solution& solution, const std::vector<Node>& dataset, int canvas_width, int canvas_height) {
+void visualize_solution(const Solution& solution, const Dataset& dataset, int canvas_width, int canvas_height) {
     int max_x = 0;
     int min_x = INT_MAX;
     int max_y = 0;
@@ -286,7 +288,7 @@ void save_solution_to_txt(Solution solution, const std::string& filename) {
     file.close();
 }
 
-void save_solution_to_png(Solution solution, const std::vector<Node>& dataset, const std::string &filename) {
+void save_solution_to_png(Solution solution, const Dataset& dataset, const std::string &filename) {
     RenderTexture2D render_texture = LoadRenderTexture(4000, 2000);
 
     BeginTextureMode(render_texture);
@@ -303,7 +305,7 @@ void save_solution_to_png(Solution solution, const std::vector<Node>& dataset, c
 }
 std::mt19937 rng(42);  // seed = 42
 // no reference since we want to copy the dataset
-Solution get_random_solution(std::vector<Node> dataset) {
+Solution get_random_solution(Dataset dataset) {
     size_t target_size = std::ceil((double)dataset.size()/2);
     Solution ret;
     while(ret.size() < target_size) {
@@ -321,7 +323,7 @@ Solution get_random_solution(std::vector<Node> dataset) {
     return ret;
 }
 
-void print_stats(const std::vector<Solution>& solutions, const std::vector<Node> &dataset, CostMatrix dist, const std::string& name) {
+void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset, CostMatrix dist, const std::string& name) {
     std::cout << name << " min cost: "  << measure_min (solutions, dist) << std::endl;
     std::cout << name << " mean cost: " << measure_mean(solutions, dist) << std::endl;
     std::cout << name << " max cost: "  << measure_max (solutions, dist) << std::endl;
@@ -330,7 +332,7 @@ void print_stats(const std::vector<Solution>& solutions, const std::vector<Node>
     save_solution_to_png(best_solution, dataset ,name + ".png");
 }
 
-Solution get_nearest_neighbor_end_only(const std::vector<Node>& dataset, CostMatrix dist, int start) {
+Solution get_nearest_neighbor_end_only(const Dataset& dataset, CostMatrix dist, int start) {
     int target_size = std::ceil((double)dataset.size()/2);
     Solution result;
 
@@ -364,8 +366,9 @@ Solution get_nearest_neighbor_end_only(const std::vector<Node>& dataset, CostMat
 
     return result;
 }
-
-Solution get_nearest_neighbor_every_position(const std::vector<Node>& dataset, CostMatrix dist, int start) {
+// implementation from first labs
+// incorrect
+Solution get_nearest_neighbor_every_position_old(const Dataset& dataset, CostMatrix dist, int start) {
     int target_size = (dataset.size() + 1) / 2;
     Solution result;
     std::vector<bool> used(dataset.size(), false);
@@ -402,7 +405,73 @@ Solution get_nearest_neighbor_every_position(const std::vector<Node>& dataset, C
     return result;
 }
 
-Solution get_greedy_cycle(const std::vector<Node>& dataset, CostMatrix dist, int start)
+// new and better implementation
+Solution get_nearest_neighbor_every_position_new(const Dataset& dataset, CostMatrix dist, int start) {
+    int target_size = (dataset.size() + 1) / 2;
+    Solution result;
+    std::vector<bool> used(dataset.size(), false);
+
+    result.push_back(dataset[start]);
+    used[start] = true;
+
+    while ((int)result.size() < target_size) {
+        int best_new_index = -1;
+        int insert_after   = -1;
+        int min_dist = INT_MAX;
+
+        for (int i = 0; i < (int)result.size()-1; i++) {
+            // before beginning case
+            if(i == -1) {
+                Node beginning = result[0];
+                for (size_t j = 0; j < dataset.size(); j++) {
+                    if (used[j]) continue;
+                    int cost = dist.get(dataset[j], beginning);
+                    if (cost < min_dist) {
+                        min_dist = cost;
+                        insert_after = i;
+                        best_new_index = j;
+                    }
+                }
+            } else if(i == (int)result.size()-1) {
+                Node ending = result[result.size() - 1];
+                for (size_t j = 0; j < dataset.size(); j++) {
+                    if (used[j]) continue;
+                    int cost = dist.get(ending, dataset[j]);
+                    if (cost < min_dist) {
+                        min_dist = cost;
+                        insert_after = i;
+                        best_new_index = j;
+                    }
+                }
+            } else {
+                Node current_node = result[i];
+                Node next_node = result[i];
+                for (size_t j = 0; j < dataset.size(); j++) {
+                    if (used[j]) continue;
+
+                    int curr_cost = dist.get(current_node, next_node);
+                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
+                    int cost = new_cost - curr_cost;
+                    if (cost < min_dist) {
+                        min_dist = cost;
+                        insert_after = i;
+                        best_new_index = j;
+                    }
+                }
+            }
+        }
+
+        assert(best_new_index != -1);
+        assert(insert_after != -1);
+
+        result.insert(result.begin() + insert_after + 1, dataset[best_new_index]);
+        used[best_new_index] = true;
+    }
+
+    return result;
+}
+
+Solution get_greedy_cycle(const Dataset& dataset, CostMatrix dist, int start)
 {
     int target_size = std::ceil((double)dataset.size() / 2);
     Solution result;
