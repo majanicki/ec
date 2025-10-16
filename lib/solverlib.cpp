@@ -566,3 +566,51 @@ Solution get_nearest_neighbor_regret(const Dataset& dataset, CostMatrix dist, in
 
     return result;
 }
+
+Solution get_greedy_cycle_regret(const Dataset& dataset, CostMatrix dist, int start) {
+    int target_size = (dataset.size() + 1) / 2;
+    Solution result;
+    std::vector<bool> used(dataset.size(), false);
+
+    result.push_back(dataset[start]);
+    used[start] = true;
+
+    while ((int)result.size() < target_size) {
+        int final_insert_location = 0;
+        int best_regret = 0;
+        int insert_id = -1;
+        for (size_t j = 0; j < dataset.size(); j++) {
+            if (used[j]) continue;
+            int best_place_cost = INT_MAX;
+            int second_best_place_cost = INT_MAX;
+            int insert_location;
+            for (int i = 0; i < (int)result.size(); i++) {
+                Node current_node = result[i];
+                Node next_node = result[(i+1)%result.size()];
+                int curr_cost = dist.get(current_node, next_node);
+                int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
+                int cost = new_cost - curr_cost;
+                if(best_place_cost > cost) {
+                    second_best_place_cost = best_place_cost;
+                    best_place_cost = cost;
+                    insert_location = i;
+                } else if (second_best_place_cost > cost) {
+                    second_best_place_cost = cost;
+                }
+            }
+            int regret = second_best_place_cost - best_place_cost;
+            assert(regret >= 0);
+            if(best_regret <= regret) {
+                best_regret = regret;
+                final_insert_location = insert_location;
+                insert_id = j;
+            }
+        }
+
+        assert(insert_id != -1);
+        result.insert(result.begin() + final_insert_location + 1, dataset[insert_id]);
+        used[insert_id] = true;
+    }
+
+    return result;
+}

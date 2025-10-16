@@ -7,7 +7,7 @@ int main() {
     CostMatrix dist = compute_distance_matrix(dataset);
     std::vector<Solution> solutions;
     for(int i = 0; i < 200; i++) {
-        solutions.push_back(get_nearest_neighbor_regret(dataset, dist, i));
+        solutions.push_back(get_greedy_cycle_regret(dataset, dist, i));
     }
     Solution best = get_best_solution(solutions, dist);
     double mean = measure_mean(solutions, dist);
