@@ -336,13 +336,24 @@ Solution get_random_solution(Dataset dataset) {
     return ret;
 }
 
-void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset, CostMatrix dist, const std::string& name) {
-    std::cout << name << " min cost: "  << measure_min (solutions, dist) << std::endl;
-    std::cout << name << " mean cost: " << measure_mean(solutions, dist) << std::endl;
-    std::cout << name << " max cost: "  << measure_max (solutions, dist) << std::endl;
+void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset, 
+                 CostMatrix dist, const std::string& name) {
+    double min_cost  = measure_min(solutions, dist);
+    double mean_cost = measure_mean(solutions, dist);
+    double max_cost  = measure_max(solutions, dist);
+
+    std::cout << name << " min cost: "  << min_cost << std::endl;
+    std::cout << name << " mean cost: " << mean_cost << std::endl;
+    std::cout << name << " max cost: "  << max_cost << std::endl;
+
     Solution best_solution = get_best_solution(solutions, dist);
+
+    std::string lore = "min: " + std::to_string((int)min_cost) +
+                       ", mean: " + std::to_string((int)mean_cost) +
+                       ", max: " + std::to_string((int)max_cost);
+
     save_solution_to_txt(best_solution, name + ".txt");
-    save_solution_to_png(best_solution, dataset ,name + ".png");
+    save_solution_to_png(best_solution, dataset, name + ".png", lore);
 }
 
 Solution get_nearest_neighbor_end_only(const Dataset& dataset, CostMatrix dist, int start) {
