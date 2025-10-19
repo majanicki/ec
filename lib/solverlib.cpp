@@ -288,20 +288,33 @@ void save_solution_to_txt(Solution solution, const std::string& filename) {
     file.close();
 }
 
-void save_solution_to_png(Solution solution, const Dataset& dataset, const std::string &filename) {
+void save_solution_to_png(Solution solution, const Dataset& dataset, const std::string &filename, std::string lore = "") {
+    if (!IsWindowReady()) {
+        InitWindow(1, 1, "This is a title");
+        SetWindowState(FLAG_WINDOW_HIDDEN);
+    }
+    
     RenderTexture2D render_texture = LoadRenderTexture(4000, 2000);
 
     BeginTextureMode(render_texture);
     ClearBackground(WHITE);
     visualize_solution(solution, dataset, 4000, 2000);
+    if (!lore.empty()) {
+        DrawText(lore.c_str(), 10, 10, 70, BLACK);
+    }
     EndTextureMode();
 
     Image final_image = LoadImageFromTexture(render_texture.texture);
+    ImageFlipVertical(&final_image);
     ExportImage(final_image, filename.c_str());
 
     UnloadImage(final_image);
     UnloadRenderTexture(render_texture);
     infof("Saved %s", filename.c_str());
+
+    if (IsWindowReady()) {
+        CloseWindow();
+    }
 }
 std::mt19937 rng(42);  // seed = 42
 // no reference since we want to copy the dataset
