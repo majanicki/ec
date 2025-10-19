@@ -639,7 +639,7 @@ Solution get_greedy_cycle_regret(const Dataset& dataset, CostMatrix dist, int st
     return result;
 }
 
-Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start) {
+Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start, float weight_cost = 0.5f, float weight_regret = 0.5f) {
     int target_size = (dataset.size() + 1) / 2;
     Solution result;
     std::vector<bool> used(dataset.size(), false);
@@ -682,7 +682,7 @@ Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMa
             }
             int regret = second_best_place_cost - best_place_cost;
             assert(regret >= 0);
-            int weighted_sum = -(float)best_place_cost * 0.5f + (float)regret * 0.5f;
+            int weighted_sum = -(float)best_place_cost * weight_cost + (float)regret * weight_regret;
             if(best_weighted_sum < weighted_sum) {
                 best_weighted_sum = weighted_sum;
                 final_insert_location = insert_location;
@@ -698,7 +698,7 @@ Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMa
     return result;
 }
 
-Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start) {
+Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start, float weight_cost = 0.5f, float weight_regret = 0.5f) {
     int target_size = (dataset.size() + 1) / 2;
     Solution result;
     std::vector<bool> used(dataset.size(), false);
@@ -731,7 +731,7 @@ Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix
             }
             int regret = second_best_place_cost - best_place_cost;
             assert(regret >= 0);
-            int weighted_sum = -(float)best_place_cost * 0.5f + (float)regret * 0.5f;
+            int weighted_sum = -(float)best_place_cost * weight_cost + (float)regret * weight_regret;
             if(best_weighted_sum < weighted_sum) {
                 best_weighted_sum = weighted_sum;
                 final_insert_location = insert_location;
