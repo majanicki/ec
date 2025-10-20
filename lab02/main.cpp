@@ -1,18 +1,5 @@
 #include <solverlib.cpp>
 
-void save_method_results(const std::vector<Solution>& solutions, const Dataset &dataset, CostMatrix dist, const std::string& name) {
-    Solution best_solution = get_best_solution(solutions, dist);
-    double mean = measure_mean(solutions, dist);
-    double min = measure_min(solutions, dist);
-    double max = measure_max(solutions, dist);
-
-    std::string lore = "min: " + std::to_string((int)min) +
-        ", mean: " + std::to_string((int)mean) +
-        ", max: "  + std::to_string((int)max);
-
-    save_solution_to_txt(best_solution, name + ".txt");
-    save_solution_to_png(best_solution, dataset ,name + ".png", lore);
-}
 
 void benchmark_solutions(const std::vector<Node> dataset, CostMatrix dist, const std::string& suffix) {
     std::vector<Solution> solutions_nearest_neighbor_regret;

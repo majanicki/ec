@@ -15,7 +15,7 @@ void benchmark_solutions(const std::vector<Node> dataset, CostMatrix dist, const
         Solution nn_end_only_solution = get_nearest_neighbor_end_only(dataset, dist, i);
         solutions_nearest_neighbor_end_only.push_back(nn_end_only_solution);
 
-        Solution nn_all_solution = get_nearest_neighbor_every_position_old(dataset, dist, i);
+        Solution nn_all_solution = get_nearest_neighbor_every_position_new(dataset, dist, i);
         solutions_nearest_neighbor_every_position.push_back(nn_all_solution);
 
         Solution greedy_cycle_solution = get_greedy_cycle(dataset, dist, i);
