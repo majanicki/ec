@@ -4,9 +4,10 @@ set -e
 
 RAYLIB="-I./raylib/include/ ./raylib/lib_linux/libraylib.a -lm"
 SOLVERLIB="-I./lib/"
-CXXFLAGS="-g -Wall -Wextra"
+CXXFLAGS="-g3 -ggdb -Wall -Wextra"
+
 
 SRC="./$1/main.cpp"
 OUT="./$1/main"
 
-g++ -o $OUT $SRC ${SOLVERLIB} ${RAYLIB} ${CXXFLAGS}
+clang++ -o $OUT $SRC ${SOLVERLIB} ${RAYLIB} ${CXXFLAGS}

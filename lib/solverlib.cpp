@@ -9,6 +9,8 @@
 #include <fstream>
 #include <raylib.h>
 #include <random>
+#include <algorithm>
+#include <sstream>
 
 #define panicf(__format, ...) \
     do { \
@@ -49,67 +51,37 @@ void print_node(Node node) {
 }
 
 char* read_file(const char filename[]) {
-    FILE *fp = fopen(filename, "r");
-    if(fp == NULL) {
-        panic("Failed to open a file");
-    }
-    if (fseek(fp, 0, SEEK_END) != 0) {
-        panic("Failed to seek in a file");
-    }
-    long size = ftell(fp);
-    if (size == -1) {
-        panic("Failed to get size of a file");
-    }
+    FILE *fp = fopen(filename, "rb");
+    if (!fp) panic("Failed to open file");
 
-    if (fseek(fp, 0, SEEK_SET) != 0) {
-        panic("Failed to rewind");
-    }
-    char *ret = new char[size];
-    long total_read = 0;
-    while(total_read != size) {
-        long bytes_read = fread(ret + total_read, 1, size - total_read, fp);
-        if (bytes_read == 0) {
-            if(bytes_read == 0) {
-                if (feof(fp)) break;
-                if(ferror(fp)) panic("Read error");
-            }
-        }
-        total_read += bytes_read;
-    }
-    ret[total_read] = '\0';
-    return ret;
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    char *buf = new char[size + 1]();  // zero-initialize
+    size_t total = fread(buf, 1, size, fp);
+    buf[total] = '\0';
+    fclose(fp);
+    return buf;
 }
 
 
-Dataset parse_dataset(char *in_file_contents) {
-    std::string whole_file(in_file_contents);
-    std::string number_separator = ";";
-    std::string new_line = "\n";
-    std::string rest(whole_file);
-    rest=whole_file;
-    Dataset ret;
+
+Dataset parse_dataset(const char *contents) {
+    Dataset data;
+    std::stringstream ss(contents);
+    std::string line;
     int index = 0;
-    while(rest.size() > 0) {
-        Node new_node;
-        new_node.id = index;
-        size_t pos = rest.find(number_separator);
-        int x = std::atoi(rest.substr(0, pos).c_str());
-        rest = rest.substr(pos+1);
 
-        pos = rest.find(number_separator);
-        int y = std::atoi(rest.substr(0, pos).c_str());
-        rest = rest.substr(pos+1);
-
-        pos = rest.find(new_line);
-        int cost = std::atoi(rest.substr(0, pos).c_str());
-        rest = rest.substr(pos+1);
-        new_node.x = x;
-        new_node.y = y;
-        new_node.cost = cost;
-        ret.push_back(new_node);
-        index++;
+    while (std::getline(ss, line)) {
+        std::stringstream ls(line);
+        std::string sx, sy, sc;
+        if (!std::getline(ls, sx, ';')) continue;
+        if (!std::getline(ls, sy, ';')) continue;
+        if (!std::getline(ls, sc)) continue;
+        data.push_back({index++, std::stoi(sx), std::stoi(sy), std::stoi(sc)});
     }
-    return ret;
+    return data;
 }
 
 
@@ -145,7 +117,7 @@ CostMatrix compute_distance_matrix(const Dataset &dataset) {
             Node b = dataset[j];
             int value;
             if (a.id == b.id) value = 0;
-            else value = euc_distance(a, b) + b.cost;
+            else value = euc_distance(a, b);
             dist.data[b.id * dist.dim + a.id] = value;
         }
     }
@@ -159,7 +131,7 @@ int compute_total_cost(const Solution& solution, CostMatrix cost_matrix) {
         int next = (i + 1) % path_size;
         Node a = solution[i];
         Node b = solution[next];
-        total += cost_matrix.get(a, b);
+        total += cost_matrix.get(a, b) + a.cost;
     }
     return total;
 }
@@ -374,7 +346,7 @@ Solution get_nearest_neighbor_end_only(const Dataset& dataset, CostMatrix dist, 
         for (size_t j = 0; j < dataset.size(); j++) {
             if (!visited_nodes[j]) {
                 Node candidate = dataset[j];
-                int distance = dist.get(last, candidate);
+                int distance = dist.get(last, candidate) + candidate.cost;
                 if (distance < nearest_distance) {
                     nearest_distance = distance;
                     nearest_node = candidate;
@@ -410,7 +382,7 @@ Solution get_nearest_neighbor_every_position_old(const Dataset& dataset, CostMat
             for (size_t j = 0; j < dataset.size(); j++) {
                 if (used[j]) continue;
 
-                int cost = dist.get(current_node, dataset[j]);
+                int cost = dist.get(current_node, dataset[j]) + dataset[j].cost;
                 if (cost < min_dist) {
                     min_dist = cost;
                     insert_after = i;
@@ -450,15 +422,15 @@ Solution get_nearest_neighbor_every_position_new(const Dataset& dataset, CostMat
                 int cost;
                 if(i == -1) {
                     Node beginning = result[0];
-                    cost = dist.get(dataset[j], beginning);
+                    cost = dist.get(dataset[j], beginning) + dataset[j].cost;
                 } else if(i == (int)result.size()-1) {
                     Node ending = result[result.size() - 1];
-                    cost = dist.get(ending, dataset[j]);
+                    cost = dist.get(ending, dataset[j]) + dataset[j].cost;
                 } else {
                     Node current_node = result[i];
                     Node next_node = result[i+1];
                     int curr_cost = dist.get(current_node, next_node);
-                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
+                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node) + dataset[j].cost;
                     cost = new_cost - curr_cost;
                 }
                 if (cost < min_dist) {
@@ -491,7 +463,7 @@ Solution get_greedy_cycle(const Dataset& dataset, CostMatrix dist, int start)
     int nearest_dist = INT_MAX;
     for (size_t i = 0; i < dataset.size(); i++) {
         if (visited_nodes[i]) continue;
-        int d = dist.get(start_node, dataset[i]);
+        int d = dist.get(start_node, dataset[i]) + dataset[i].cost;
         if (d < nearest_dist) {
             nearest_dist = d;
             nearest_idx = i;
@@ -516,7 +488,7 @@ Solution get_greedy_cycle(const Dataset& dataset, CostMatrix dist, int start)
                 Node a = result[pos];
                 Node b = result[(pos + 1) % result.size()]; // go to the beginning if at the end
 
-                int delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b);
+                int delta = dist.get(a, candidate) + dist.get(candidate, b) - dist.get(a, b) + candidate.cost;
                 if (delta < best_delta) {
                     best_delta = delta;
                     best_node = j;
@@ -533,112 +505,6 @@ Solution get_greedy_cycle(const Dataset& dataset, CostMatrix dist, int start)
     return result;
 }
 
-Solution get_nearest_neighbor_regret(const Dataset& dataset, CostMatrix dist, int start) {
-    int target_size = (dataset.size() + 1) / 2;
-    Solution result;
-    std::vector<bool> used(dataset.size(), false);
-
-    result.push_back(dataset[start]);
-    used[start] = true;
-
-    while ((int)result.size() < target_size) {
-        int final_insert_location = 0;
-        int best_regret = 0;
-        int insert_id = -1;
-        for (size_t j = 0; j < dataset.size(); j++) {
-            if (used[j]) continue;
-            int best_place_cost = INT_MAX;
-            int second_best_place_cost = INT_MAX;
-            int insert_location;
-            for (int i = -1; i < (int)result.size(); i++) {
-                // before beginning case
-                int cost;
-                if(i == -1) {
-                    Node beginning = result[0];
-                    cost = dist.get(dataset[j], beginning);
-                } else if(i == (int)result.size()-1) {
-                    Node ending = result[result.size() - 1];
-                    cost = dist.get(ending, dataset[j]);
-                } else {
-                    Node current_node = result[i];
-                    Node next_node = result[i+1];
-                    int curr_cost = dist.get(current_node, next_node);
-                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
-                    cost = new_cost - curr_cost;
-                }
-                if(best_place_cost > cost) {
-                    second_best_place_cost = best_place_cost;
-                    best_place_cost = cost;
-                    insert_location = i;
-                } else if (second_best_place_cost > cost) {
-                    second_best_place_cost = cost;
-                }
-            }
-            int regret = second_best_place_cost - best_place_cost;
-            assert(regret >= 0);
-            if(best_regret < regret) {
-                best_regret = regret;
-                final_insert_location = insert_location;
-                insert_id = j;
-            }
-        }
-
-        assert(insert_id != -1);
-        result.insert(result.begin() + final_insert_location + 1, dataset[insert_id]);
-        used[insert_id] = true;
-    }
-
-    return result;
-}
-
-Solution get_greedy_cycle_regret(const Dataset& dataset, CostMatrix dist, int start) {
-    int target_size = (dataset.size() + 1) / 2;
-    Solution result;
-    std::vector<bool> used(dataset.size(), false);
-
-    result.push_back(dataset[start]);
-    used[start] = true;
-
-    while ((int)result.size() < target_size) {
-        int final_insert_location = 0;
-        int best_regret = 0;
-        int insert_id = -1;
-        for (size_t j = 0; j < dataset.size(); j++) {
-            if (used[j]) continue;
-            int best_place_cost = INT_MAX;
-            int second_best_place_cost = INT_MAX;
-            int insert_location;
-            for (int i = 0; i < (int)result.size(); i++) {
-                Node current_node = result[i];
-                Node next_node = result[(i+1)%result.size()];
-                int curr_cost = dist.get(current_node, next_node);
-                int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
-                int cost = new_cost - curr_cost;
-                if(best_place_cost > cost) {
-                    second_best_place_cost = best_place_cost;
-                    best_place_cost = cost;
-                    insert_location = i;
-                } else if (second_best_place_cost > cost) {
-                    second_best_place_cost = cost;
-                }
-            }
-            int regret = second_best_place_cost - best_place_cost;
-            assert(regret >= 0);
-            if(best_regret <= regret) {
-                best_regret = regret;
-                final_insert_location = insert_location;
-                insert_id = j;
-            }
-        }
-
-        assert(insert_id != -1);
-        result.insert(result.begin() + final_insert_location + 1, dataset[insert_id]);
-        used[insert_id] = true;
-    }
-
-    return result;
-}
-
 Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start, float weight_cost = 0.5f, float weight_regret = 0.5f) {
     int target_size = (dataset.size() + 1) / 2;
     Solution result;
@@ -648,7 +514,7 @@ Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMa
     used[start] = true;
 
     while ((int)result.size() < target_size) {
-        int final_insert_location = 0;
+        int final_insert_location = -2;
         int best_weighted_sum = INT_MIN;
         int insert_id = -1;
         for (size_t j = 0; j < dataset.size(); j++) {
@@ -661,15 +527,15 @@ Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMa
                 int cost;
                 if(i == -1) {
                     Node beginning = result[0];
-                    cost = dist.get(dataset[j], beginning);
+                    cost = dist.get(dataset[j], beginning) + dataset[j].cost;
                 } else if(i == (int)result.size()-1) {
                     Node ending = result[result.size() - 1];
-                    cost = dist.get(ending, dataset[j]);
+                    cost = dist.get(ending, dataset[j]) + dataset[j].cost;
                 } else {
                     Node current_node = result[i];
                     Node next_node = result[i+1];
                     int curr_cost = dist.get(current_node, next_node);
-                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
+                    int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node) + dataset[j].cost;
                     cost = new_cost - curr_cost;
                 }
                 if(best_place_cost > cost) {
@@ -691,11 +557,16 @@ Solution get_nearest_neighbor_regret_weighted_sum(const Dataset& dataset, CostMa
         }
 
         assert(insert_id != -1);
+        assert(final_insert_location != -2);
         result.insert(result.begin() + final_insert_location + 1, dataset[insert_id]);
         used[insert_id] = true;
     }
 
     return result;
+}
+
+Solution get_nearest_neighbor_regret(const Dataset& dataset, CostMatrix dist, int start) {
+    return get_nearest_neighbor_regret_weighted_sum(dataset, dist, start, 0.0f, 1.0f);
 }
 
 Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix dist, int start, float weight_cost = 0.5f, float weight_regret = 0.5f) {
@@ -707,7 +578,7 @@ Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix
     used[start] = true;
 
     while ((int)result.size() < target_size) {
-        int final_insert_location = 0;
+        int final_insert_location = -1;
         int best_weighted_sum = INT_MIN;
         int insert_id = -1;
         for (size_t j = 0; j < dataset.size(); j++) {
@@ -719,7 +590,7 @@ Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix
                 Node current_node = result[i];
                 Node next_node = result[(i+1)%result.size()];
                 int curr_cost = dist.get(current_node, next_node);
-                int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node);
+                int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node) + dataset[j].cost;
                 int cost = new_cost - curr_cost;
                 if(best_place_cost > cost) {
                     second_best_place_cost = best_place_cost;
@@ -740,9 +611,51 @@ Solution get_greedy_cycle_regret_weighted_sum(const Dataset& dataset, CostMatrix
         }
 
         assert(insert_id != -1);
+        assert(final_insert_location != -1);
         result.insert(result.begin() + final_insert_location + 1, dataset[insert_id]);
         used[insert_id] = true;
     }
 
     return result;
 }
+
+Solution get_greedy_cycle_regret(const Dataset& dataset, CostMatrix dist, int start) {
+    return get_greedy_cycle_regret_weighted_sum(dataset, dist, start, 0.0f, 1.0f);
+}
+
+// Solution get_local_search_greedy(Solution solution, const Dataset &dataset, CostMatrix dist) {
+// 
+//     std::vector<int> random_order_dataset;
+//     for(int i = 0; i < dataset.size(); i++) {
+//         random_order_dataset.push_back(i);
+//     }
+//     std::vector<int> random_order_solution;
+//     std::vector<bool> used(dataset.size(), false);
+//     for(int i = 0; i < solution.size(); i++) {
+//         random_order_solution.push_back(i);
+//         used[solution[i].id] = true;
+//     }
+//     while(true) {
+//         std::uniform_int_distribution<int> dist(0, 1);
+//         int move_kind = dist(rng);
+// 
+//         if(move_kind == 0) {
+//             // inter-route move
+//             std::shuffle(random_order_solution.begin(), random_order_solution.end(), rng);
+//             std::shuffle(random_order_dataset.begin(), random_order_dataset.end(), rng);
+//             for (int j = 0; j < dataset.size(); j++) {
+//                 int dataset_index = random_order_dataset[j];
+//                 if(used[dataset_index]) continue;
+//                 Node candidate = dataset[dataset_index];
+//                 for(int rng_pos = 0; rng_pos < solution.size(); rng_pos++) {
+//                     int i = random_order_solution[rng_pos];
+//                     int from_cost = dist.get(solution[i], solution[(i+1)%solution.size()]);
+//                     int to_cost = dist.get(solution[i], solution[(i+1)%solution.size()]);
+// 
+//                     int new_cost = dist.get(candidate, solution[i+1]);
+//                     int delta = curr_cost - new_cost;
+//                 }
+//             }
+//         }
+//     }
+// }
