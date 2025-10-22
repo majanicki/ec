@@ -623,39 +623,165 @@ Solution get_greedy_cycle_regret(const Dataset& dataset, CostMatrix dist, int st
     return get_greedy_cycle_regret_weighted_sum(dataset, dist, start, 0.0f, 1.0f);
 }
 
-// Solution get_local_search_greedy(Solution solution, const Dataset &dataset, CostMatrix dist) {
-// 
-//     std::vector<int> random_order_dataset;
-//     for(int i = 0; i < dataset.size(); i++) {
-//         random_order_dataset.push_back(i);
-//     }
-//     std::vector<int> random_order_solution;
-//     std::vector<bool> used(dataset.size(), false);
-//     for(int i = 0; i < solution.size(); i++) {
-//         random_order_solution.push_back(i);
-//         used[solution[i].id] = true;
-//     }
-//     while(true) {
-//         std::uniform_int_distribution<int> dist(0, 1);
-//         int move_kind = dist(rng);
-// 
-//         if(move_kind == 0) {
-//             // inter-route move
-//             std::shuffle(random_order_solution.begin(), random_order_solution.end(), rng);
-//             std::shuffle(random_order_dataset.begin(), random_order_dataset.end(), rng);
-//             for (int j = 0; j < dataset.size(); j++) {
-//                 int dataset_index = random_order_dataset[j];
-//                 if(used[dataset_index]) continue;
-//                 Node candidate = dataset[dataset_index];
-//                 for(int rng_pos = 0; rng_pos < solution.size(); rng_pos++) {
-//                     int i = random_order_solution[rng_pos];
-//                     int from_cost = dist.get(solution[i], solution[(i+1)%solution.size()]);
-//                     int to_cost = dist.get(solution[i], solution[(i+1)%solution.size()]);
-// 
-//                     int new_cost = dist.get(candidate, solution[i+1]);
-//                     int delta = curr_cost - new_cost;
-//                 }
-//             }
-//         }
-//     }
-// }
+
+enum MoveKind{
+    INTER_ROUTE,
+    INTRA_ROUTE_EDGE_EXCHANGE,
+    INTRA_ROUTE_NODE_EXCHANGE,
+};
+
+struct Move {
+    int solution_index;
+    int dataset_index;
+
+    int swap_index_a;
+    int swap_index_b;
+
+    MoveKind kind;
+    bool valid = false;
+};
+
+Move get_best_random_move(const Solution& solution, const Dataset &dataset, CostMatrix dist,
+        const std::vector<bool>&used, MoveKind inter_route_move_kind) {
+
+    int inter_solution_index = 0;
+    int inter_dataset_index = 0;
+
+    int intra_node_a_index = 0;
+    int intra_node_b_index = 1;
+    int range_start = 0;
+    int range_end = 1;
+    while(true) {
+        if(range_end - range_start < 0) {
+            break;
+        }
+        std::uniform_int_distribution<int> rng_dist(range_start, range_end);
+        int move_kind = rng_dist(rng);
+        switch(move_kind) {
+            case 0:{
+                if((size_t)inter_dataset_index >= dataset.size()) {
+                    inter_solution_index++;
+                    if((size_t)inter_solution_index >= solution.size()) {
+                        range_start = 1;
+                        break;
+                    }
+                    inter_dataset_index = 0;
+                }
+                if(used[inter_dataset_index]) {
+                    inter_dataset_index++;
+                    break;
+                }
+                Node candidate = dataset[inter_dataset_index];
+                Node next_node = solution[(inter_solution_index+1) % solution.size()];
+                Node swap_out_node = solution[inter_solution_index];
+                Node prev_node = solution[(inter_solution_index == 0) ? solution.size() - 1 : inter_solution_index - 1];
+                int to_cost   = dist.get(prev_node, swap_out_node);
+                int from_cost = dist.get(swap_out_node, next_node);
+                int old_cost = to_cost + from_cost + swap_out_node.cost;
+
+                int new_to_cost = dist.get(prev_node, candidate);
+                int new_from_cost = dist.get(candidate, next_node);
+                int new_cost = new_to_cost + new_from_cost + candidate.cost;
+
+                if(new_cost < old_cost) {
+                    Move move;
+                    move.kind = INTER_ROUTE;
+                    move.solution_index = inter_solution_index;
+                    move.dataset_index = inter_dataset_index;
+                    move.valid = true;
+                    return move;
+                }
+                inter_dataset_index++;
+                break;
+            }
+            case 1: {
+                if((size_t)intra_node_b_index >= solution.size()) {
+                    intra_node_a_index++;
+                    intra_node_b_index = intra_node_a_index+1;
+                    if((size_t)intra_node_a_index >= solution.size() || (size_t)intra_node_b_index >= solution.size()) {
+                        range_end = 0;
+                        break;
+                    }
+                }
+                Node next_node_a = solution[(intra_node_a_index+1) % solution.size()];
+                Node node_a = solution[intra_node_a_index];
+                Node prev_node_a = solution[(intra_node_a_index == 0) ? solution.size() - 1 : intra_node_a_index - 1];
+
+                Node next_node_b = solution[(intra_node_b_index+1) % solution.size()];
+                Node node_b = solution[intra_node_b_index];
+                Node prev_node_b = solution[(intra_node_b_index == 0) ? solution.size() - 1 : intra_node_b_index - 1];
+
+                int old_cost = 0;
+                int new_cost = 0;
+                if(next_node_a.id == node_b.id) {
+                    old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_b);
+                    new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_b);
+
+                } else if (next_node_b.id == node_a.id) {
+                    old_cost = dist.get(prev_node_b, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_a);
+                    new_cost = dist.get(prev_node_b, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_a);
+
+                } else {
+                    old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, next_node_a) +
+                        dist.get(prev_node_b, node_b) + dist.get(node_b, next_node_b);
+                    new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, next_node_a) +
+                        dist.get(prev_node_b, node_a) + dist.get(node_a, next_node_b);
+                }
+
+                if(new_cost < old_cost) {
+                    Move move;
+                    move.kind = INTRA_ROUTE_NODE_EXCHANGE;
+                    move.swap_index_a = intra_node_a_index;
+                    move.swap_index_b = intra_node_b_index;
+                    move.valid = true;
+                    return move;
+                }
+                intra_node_b_index++;
+                break;
+            }
+
+        }
+    }
+    Move m;
+    m.valid = false;
+    return m;
+}
+
+bool act_on_move(const Move &move, Solution &solution, const Dataset &dataset, std::vector<bool> &used) {
+    if(!move.valid) {
+        return false;
+    }
+    switch(move.kind) {
+        case INTER_ROUTE:
+            used[solution[move.solution_index].id] = false;
+            used[move.dataset_index] = true;
+            solution[move.solution_index] = dataset[move.dataset_index];
+            return true;
+            break;
+        case INTRA_ROUTE_NODE_EXCHANGE:
+            Node tmp = solution[move.swap_index_b];
+            solution[move.swap_index_b] = solution[move.swap_index_a];
+            solution[move.swap_index_a] = tmp;
+            return true;
+            break;
+    }
+    return false;
+
+}
+
+
+Solution get_local_search_greedy(Solution solution, const Dataset &dataset, CostMatrix dist) {
+
+    std::vector<bool> used(dataset.size(), false);
+
+    for(size_t i = 0; i < solution.size(); i++) {
+        used[solution[i].id] = true;
+    }
+
+    bool okay = true;
+    while(okay) {
+        Move next_move = get_best_random_move(solution, dataset, dist, used, INTRA_ROUTE_EDGE_EXCHANGE);
+        okay = act_on_move(next_move, solution, dataset, used);
+    }
+    return solution;
+}
