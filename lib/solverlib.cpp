@@ -641,8 +641,73 @@ struct Move {
     bool valid = false;
 };
 
+int get_move_delta(const Move &move, const Solution& solution, const Dataset &dataset, CostMatrix dist) {
+    switch(move.kind) {
+        case INTER_ROUTE: {
+            Node candidate = dataset[move.dataset_index];
+            Node next_node = solution[(move.solution_index+1) % solution.size()];
+            Node swap_out_node = solution[move.solution_index];
+            Node prev_node = solution[(move.solution_index == 0) ? solution.size() - 1 : move.solution_index - 1];
+            int to_cost   = dist.get(prev_node, swap_out_node);
+            int from_cost = dist.get(swap_out_node, next_node);
+            int old_cost = to_cost + from_cost + swap_out_node.cost;
+
+            int new_to_cost = dist.get(prev_node, candidate);
+            int new_from_cost = dist.get(candidate, next_node);
+            int new_cost = new_to_cost + new_from_cost + candidate.cost;
+            return new_cost - old_cost;
+        }
+        case INTRA_ROUTE_NODE_EXCHANGE:{
+            Node next_node_a = solution[(move.swap_index_a+1) % solution.size()];
+            Node node_a = solution[move.swap_index_a];
+            Node prev_node_a = solution[(move.swap_index_a == 0) ? solution.size() - 1 : move.swap_index_a - 1];
+
+            Node next_node_b = solution[(move.swap_index_b+1) % solution.size()];
+            Node node_b = solution[move.swap_index_b];
+            Node prev_node_b = solution[(move.swap_index_b == 0) ? solution.size() - 1 : move.swap_index_b - 1];
+
+            int old_cost = 0;
+            int new_cost = 0;
+            if(next_node_a.id == node_b.id) {
+                old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_b);
+                new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_b);
+
+            } else if (next_node_b.id == node_a.id) {
+                old_cost = dist.get(prev_node_b, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_a);
+                new_cost = dist.get(prev_node_b, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_a);
+
+            } else {
+                old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, next_node_a) +
+                    dist.get(prev_node_b, node_b) + dist.get(node_b, next_node_b);
+                new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, next_node_a) +
+                    dist.get(prev_node_b, node_a) + dist.get(node_a, next_node_b);
+            }
+            return new_cost-old_cost;
+        }
+        default:
+            panicf("impossible");
+    }
+}
+static inline Move move_inter_route(int solution_index, int dataset_index) {
+    Move move;
+    move.kind = INTER_ROUTE;
+    move.solution_index = solution_index;
+    move.dataset_index = dataset_index;
+    move.valid = true;
+    return move;
+}
+
+static inline Move move_intra_route_node_exchange(int index_node_a, int index_node_b) {
+    Move move;
+    move.kind = INTRA_ROUTE_NODE_EXCHANGE;
+    move.swap_index_a = index_node_a;
+    move.swap_index_b = index_node_b;
+    move.valid = true;
+    return move;
+}
+
 Move get_best_random_move(const Solution& solution, const Dataset &dataset, CostMatrix dist,
-        const std::vector<bool>&used, MoveKind inter_route_move_kind) {
+        const std::vector<bool>&used, MoveKind intra_route_move_kind) {
 
     int inter_solution_index = 0;
     int inter_dataset_index = 0;
@@ -671,24 +736,10 @@ Move get_best_random_move(const Solution& solution, const Dataset &dataset, Cost
                     inter_dataset_index++;
                     break;
                 }
-                Node candidate = dataset[inter_dataset_index];
-                Node next_node = solution[(inter_solution_index+1) % solution.size()];
-                Node swap_out_node = solution[inter_solution_index];
-                Node prev_node = solution[(inter_solution_index == 0) ? solution.size() - 1 : inter_solution_index - 1];
-                int to_cost   = dist.get(prev_node, swap_out_node);
-                int from_cost = dist.get(swap_out_node, next_node);
-                int old_cost = to_cost + from_cost + swap_out_node.cost;
 
-                int new_to_cost = dist.get(prev_node, candidate);
-                int new_from_cost = dist.get(candidate, next_node);
-                int new_cost = new_to_cost + new_from_cost + candidate.cost;
-
-                if(new_cost < old_cost) {
-                    Move move;
-                    move.kind = INTER_ROUTE;
-                    move.solution_index = inter_solution_index;
-                    move.dataset_index = inter_dataset_index;
-                    move.valid = true;
+                Move move = move_inter_route(inter_solution_index, inter_dataset_index);
+                int delta = get_move_delta(move, solution, dataset, dist);
+                if(delta < 0) {
                     return move;
                 }
                 inter_dataset_index++;
@@ -703,37 +754,14 @@ Move get_best_random_move(const Solution& solution, const Dataset &dataset, Cost
                         break;
                     }
                 }
-                Node next_node_a = solution[(intra_node_a_index+1) % solution.size()];
-                Node node_a = solution[intra_node_a_index];
-                Node prev_node_a = solution[(intra_node_a_index == 0) ? solution.size() - 1 : intra_node_a_index - 1];
-
-                Node next_node_b = solution[(intra_node_b_index+1) % solution.size()];
-                Node node_b = solution[intra_node_b_index];
-                Node prev_node_b = solution[(intra_node_b_index == 0) ? solution.size() - 1 : intra_node_b_index - 1];
-
-                int old_cost = 0;
-                int new_cost = 0;
-                if(next_node_a.id == node_b.id) {
-                    old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_b);
-                    new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_b);
-
-                } else if (next_node_b.id == node_a.id) {
-                    old_cost = dist.get(prev_node_b, node_b) + dist.get(node_b, node_a) + dist.get(node_a, next_node_a);
-                    new_cost = dist.get(prev_node_b, node_a) + dist.get(node_a, node_b) + dist.get(node_b, next_node_a);
-
-                } else {
-                    old_cost = dist.get(prev_node_a, node_a) + dist.get(node_a, next_node_a) +
-                        dist.get(prev_node_b, node_b) + dist.get(node_b, next_node_b);
-                    new_cost = dist.get(prev_node_a, node_b) + dist.get(node_b, next_node_a) +
-                        dist.get(prev_node_b, node_a) + dist.get(node_a, next_node_b);
+                Move move;
+                if(intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE){
+                    // move = move_intra_route_edge_exchange(inter_solution_index, inter_dataset_index);
+                } else if(intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
+                    move = move_intra_route_node_exchange(intra_node_a_index, intra_node_b_index);
                 }
-
-                if(new_cost < old_cost) {
-                    Move move;
-                    move.kind = INTRA_ROUTE_NODE_EXCHANGE;
-                    move.swap_index_a = intra_node_a_index;
-                    move.swap_index_b = intra_node_b_index;
-                    move.valid = true;
+                int delta = get_move_delta(move, solution, dataset, dist);
+                if(delta < 0) {
                     return move;
                 }
                 intra_node_b_index++;
@@ -780,7 +808,7 @@ Solution get_local_search_greedy(Solution solution, const Dataset &dataset, Cost
 
     bool okay = true;
     while(okay) {
-        Move next_move = get_best_random_move(solution, dataset, dist, used, INTRA_ROUTE_EDGE_EXCHANGE);
+        Move next_move = get_best_random_move(solution, dataset, dist, used, INTRA_ROUTE_NODE_EXCHANGE);
         okay = act_on_move(next_move, solution, dataset, used);
     }
     return solution;
