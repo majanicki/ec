@@ -783,7 +783,7 @@ Move get_best_random_move(const Solution& solution, const Dataset &dataset, Cost
                 }
                 Move move;
                 if(intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE){
-                    move = move_intra_route_edge_exchange(inter_solution_index, inter_dataset_index);
+                    move = move_intra_route_edge_exchange(intra_node_a_index, intra_node_b_index);
                 } else if(intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
                     move = move_intra_route_node_exchange(intra_node_a_index, intra_node_b_index);
                 }
@@ -835,7 +835,7 @@ bool act_on_move(const Move &move, Solution &solution, const Dataset &dataset, s
 }
 
 
-Solution get_local_search_greedy(Solution solution, const Dataset &dataset, CostMatrix dist) {
+Solution get_local_search_greedy(Solution solution, const Dataset &dataset, CostMatrix dist, MoveKind intra_route_move_kind) {
 
     std::vector<bool> used(dataset.size(), false);
 
@@ -845,7 +845,7 @@ Solution get_local_search_greedy(Solution solution, const Dataset &dataset, Cost
 
     bool okay = true;
     while(okay) {
-        Move next_move = get_best_random_move(solution, dataset, dist, used, INTRA_ROUTE_NODE_EXCHANGE);
+        Move next_move = get_best_random_move(solution, dataset, dist, used, intra_route_move_kind);
         okay = act_on_move(next_move, solution, dataset, used);
     }
     return solution;
@@ -853,7 +853,7 @@ Solution get_local_search_greedy(Solution solution, const Dataset &dataset, Cost
 
 
 Move get_best_move_steepest(const Solution& solution, const Dataset &dataset, CostMatrix dist,
-                            const std::vector<bool>& used) {
+                            const std::vector<bool>& used, MoveKind intra_route_move_kind) {
     Move best_move;
     best_move.valid = false;
     int best_delta = 0;
@@ -870,24 +870,26 @@ Move get_best_move_steepest(const Solution& solution, const Dataset &dataset, Co
         }
     }
 
-    for (int a = 0; a < (int)solution.size()-1; a++) {
-        for (int b = a+1; b < (int)solution.size(); b++) {
-            Move move = move_intra_route_node_exchange(a, b);
-            int delta = get_move_delta(move, solution, dataset, dist);
-            if (delta < best_delta) {
-                best_delta = delta;
-                best_move = move;
+    if (intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
+        for (int a = 0; a < (int)solution.size()-1; a++) {
+            for (int b = a+1; b < (int)solution.size(); b++) {
+                Move move = move_intra_route_node_exchange(a, b);
+                int delta = get_move_delta(move, solution, dataset, dist);
+                if (delta < best_delta) {
+                    best_delta = delta;
+                    best_move = move;
+                }
             }
         }
-    }
-
-    for (int a = 0; a < (int)solution.size()-1; a++) {
-        for (int b = a+1; b < (int)solution.size(); b++) {
-            Move move = move_intra_route_edge_exchange(a, b);
-            int delta = get_move_delta(move, solution, dataset, dist);
-            if (delta < best_delta) {
-                best_delta = delta;
-                best_move = move;
+    } else if (intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE) {
+        for (int a = 0; a < (int)solution.size()-1; a++) {
+            for (int b = a+1; b < (int)solution.size(); b++) {
+                Move move = move_intra_route_edge_exchange(a, b);
+                int delta = get_move_delta(move, solution, dataset, dist);
+                if (delta < best_delta) {
+                    best_delta = delta;
+                    best_move = move;
+                }
             }
         }
     }
@@ -903,7 +905,7 @@ Move get_best_move_steepest(const Solution& solution, const Dataset &dataset, Co
 }
 
 
-Solution get_local_search_steepest(Solution solution, const Dataset &dataset, CostMatrix dist) {
+Solution get_local_search_steepest(Solution solution, const Dataset &dataset, CostMatrix dist, MoveKind intra_route_move_kind) {
     std::vector<bool> used(dataset.size(), false);
     for (size_t i = 0; i < solution.size(); i++) {
         used[solution[i].id] = true;
@@ -911,7 +913,7 @@ Solution get_local_search_steepest(Solution solution, const Dataset &dataset, Co
 
     bool okay = true;
     while(okay) {
-        Move best_move = get_best_move_steepest(solution, dataset, dist, used);
+        Move best_move = get_best_move_steepest(solution, dataset, dist, used, intra_route_move_kind);
         okay = act_on_move(best_move, solution, dataset, used);
     }
 
