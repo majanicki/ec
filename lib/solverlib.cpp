@@ -8,8 +8,8 @@
 #include <cstring>
 #include <fstream>
 #include <raylib.h>
-#include <random>
 #include <algorithm>
+#include <random>
 #include <sstream>
 
 #define panicf(__format, ...) \
@@ -46,7 +46,7 @@ typedef std::vector<Node> Solution;
 typedef std::vector<Node> Dataset;
 
 void print_node(Node node) {
-    std::cout << "x = " << node.x << "; y = " << node.y << 
+    std::cout << "x = " << node.x << "; y = " << node.y <<
         "; cost = " << node.cost << std::endl;
 }
 
@@ -265,7 +265,7 @@ void save_solution_to_png(Solution solution, const Dataset& dataset, const std::
         InitWindow(1, 1, "This is a title");
         SetWindowState(FLAG_WINDOW_HIDDEN);
     }
-    
+
     RenderTexture2D render_texture = LoadRenderTexture(4000, 2000);
 
     BeginTextureMode(render_texture);
@@ -308,7 +308,7 @@ Solution get_random_solution(Dataset dataset) {
     return ret;
 }
 
-void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset, 
+void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset,
                  CostMatrix dist, const std::string& name) {
     double min_cost  = measure_min(solutions, dist);
     double mean_cost = measure_mean(solutions, dist);
@@ -479,12 +479,12 @@ Solution get_greedy_cycle(const Dataset& dataset, CostMatrix dist, int start)
         int best_pos = -1;
         int best_delta = INT_MAX;
 
-        for (size_t j = 0; j < dataset.size(); j++) { 
+        for (size_t j = 0; j < dataset.size(); j++) {
             if (visited_nodes[j]) continue; // for every node that has not been visited yet
             Node candidate = dataset[j];
 
             for (size_t pos = 0; pos < result.size(); pos++) {
-                // try inserting it between every two nodes in the current cycle 
+                // try inserting it between every two nodes in the current cycle
                 Node a = result[pos];
                 Node b = result[(pos + 1) % result.size()]; // go to the beginning if at the end
 
@@ -684,10 +684,28 @@ int get_move_delta(const Move &move, const Solution& solution, const Dataset &da
             }
             return new_cost-old_cost;
         }
+        case INTRA_ROUTE_EDGE_EXCHANGE:{
+            // swapping (a -> c) and (b -> d) with (a -> b) and (c -> d)
+            int a = move.swap_index_a;
+            int b = move.swap_index_b;
+            int c = (a + 1) % (int)solution.size();
+            int d = (b + 1) % (int)solution.size();
+
+            Node node_a = solution[a];
+            Node node_b = solution[b];
+            Node node_c = solution[c];
+            Node node_d = solution[d];
+
+            int old_cost = dist.get(node_a, node_c) + dist.get(node_b, node_d);
+            int new_cost = dist.get(node_a, node_b) + dist.get(node_c, node_d);
+
+            return new_cost-old_cost;
+        }
         default:
             panicf("impossible");
     }
 }
+
 static inline Move move_inter_route(int solution_index, int dataset_index) {
     Move move;
     move.kind = INTER_ROUTE;
@@ -702,6 +720,15 @@ static inline Move move_intra_route_node_exchange(int index_node_a, int index_no
     move.kind = INTRA_ROUTE_NODE_EXCHANGE;
     move.swap_index_a = index_node_a;
     move.swap_index_b = index_node_b;
+    move.valid = true;
+    return move;
+}
+
+static inline Move move_intra_route_edge_exchange(int index_edge_a, int index_edge_b) {
+    Move move;
+    move.kind = INTRA_ROUTE_EDGE_EXCHANGE;
+    move.swap_index_a = index_edge_a;
+    move.swap_index_b = index_edge_b;
     move.valid = true;
     return move;
 }
@@ -756,7 +783,7 @@ Move get_best_random_move(const Solution& solution, const Dataset &dataset, Cost
                 }
                 Move move;
                 if(intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE){
-                    // move = move_intra_route_edge_exchange(inter_solution_index, inter_dataset_index);
+                    move = move_intra_route_edge_exchange(inter_solution_index, inter_dataset_index);
                 } else if(intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
                     move = move_intra_route_node_exchange(intra_node_a_index, intra_node_b_index);
                 }
@@ -780,21 +807,31 @@ bool act_on_move(const Move &move, Solution &solution, const Dataset &dataset, s
         return false;
     }
     switch(move.kind) {
-        case INTER_ROUTE:
+        case INTER_ROUTE:{
             used[solution[move.solution_index].id] = false;
             used[move.dataset_index] = true;
             solution[move.solution_index] = dataset[move.dataset_index];
             return true;
-            break;
-        case INTRA_ROUTE_NODE_EXCHANGE:
+        }
+
+        case INTRA_ROUTE_NODE_EXCHANGE:{
             Node tmp = solution[move.swap_index_b];
             solution[move.swap_index_b] = solution[move.swap_index_a];
             solution[move.swap_index_a] = tmp;
             return true;
-            break;
+        }
+
+        case INTRA_ROUTE_EDGE_EXCHANGE:{
+            int a = move.swap_index_a;
+            int b = move.swap_index_b;
+
+            if (a + 1 >= b) return false;
+
+            std::reverse(solution.begin() + a + 1, solution.begin() + b + 1);
+            return true;
+        }
     }
     return false;
-
 }
 
 
@@ -811,5 +848,72 @@ Solution get_local_search_greedy(Solution solution, const Dataset &dataset, Cost
         Move next_move = get_best_random_move(solution, dataset, dist, used, INTRA_ROUTE_NODE_EXCHANGE);
         okay = act_on_move(next_move, solution, dataset, used);
     }
+    return solution;
+}
+
+
+Move get_best_move_steepest(const Solution& solution, const Dataset &dataset, CostMatrix dist,
+                            const std::vector<bool>& used) {
+    Move best_move;
+    best_move.valid = false;
+    int best_delta = 0;
+
+    for (int i = 0; i < (int)solution.size(); i++) {
+        for (int j = 0; j < (int)dataset.size(); j++) {
+            if (used[j]) continue;
+            Move move = move_inter_route(i, j);
+            int delta = get_move_delta(move, solution, dataset, dist);
+            if (delta < best_delta) {
+                best_delta = delta;
+                best_move = move;
+            }
+        }
+    }
+
+    for (int a = 0; a < (int)solution.size()-1; a++) {
+        for (int b = a+1; b < (int)solution.size(); b++) {
+            Move move = move_intra_route_node_exchange(a, b);
+            int delta = get_move_delta(move, solution, dataset, dist);
+            if (delta < best_delta) {
+                best_delta = delta;
+                best_move = move;
+            }
+        }
+    }
+
+    for (int a = 0; a < (int)solution.size()-1; a++) {
+        for (int b = a+1; b < (int)solution.size(); b++) {
+            Move move = move_intra_route_edge_exchange(a, b);
+            int delta = get_move_delta(move, solution, dataset, dist);
+            if (delta < best_delta) {
+                best_delta = delta;
+                best_move = move;
+            }
+        }
+    }
+
+    if (best_delta < 0) {
+        return best_move;
+    } else {
+        best_move.valid = false;
+        return best_move;
+    }
+
+    return best_move;
+}
+
+
+Solution get_local_search_steepest(Solution solution, const Dataset &dataset, CostMatrix dist) {
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) {
+        used[solution[i].id] = true;
+    }
+
+    bool okay = true;
+    while(okay) {
+        Move best_move = get_best_move_steepest(solution, dataset, dist, used);
+        okay = act_on_move(best_move, solution, dataset, used);
+    }
+
     return solution;
 }
