@@ -309,7 +309,7 @@ Solution get_random_solution(Dataset dataset) {
 }
 
 void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset,
-                 CostMatrix dist, const std::string& name) {
+                 CostMatrix dist, const std::string& name, std::string lore = "") {
     double min_cost  = measure_min(solutions, dist);
     double mean_cost = measure_mean(solutions, dist);
     double max_cost  = measure_max(solutions, dist);
@@ -320,9 +320,9 @@ void print_stats(const std::vector<Solution>& solutions, const Dataset &dataset,
 
     Solution best_solution = get_best_solution(solutions, dist);
 
-    std::string lore = "min: " + std::to_string((int)min_cost) +
-                       ", mean: " + std::to_string((int)mean_cost) +
-                       ", max: " + std::to_string((int)max_cost);
+    lore += "Score: " + std::to_string((int)mean_cost) +
+            " (" + std::to_string((int)min_cost) + ", " + std::to_string((int)max_cost) + ")";
+
 
     save_solution_to_txt(best_solution, name + ".txt");
     save_solution_to_png(best_solution, dataset, name + ".png", lore);
@@ -821,13 +821,29 @@ bool act_on_move(const Move &move, Solution &solution, const Dataset &dataset, s
             return true;
         }
 
-        case INTRA_ROUTE_EDGE_EXCHANGE:{
+        case INTRA_ROUTE_EDGE_EXCHANGE: {
+            int n = (int)solution.size();
             int a = move.swap_index_a;
             int b = move.swap_index_b;
 
-            if (a + 1 >= b) return false;
+            if (a == b) return false;
 
-            std::reverse(solution.begin() + a + 1, solution.begin() + b + 1);
+            if (a < b) { // standard case
+                std::reverse(solution.begin() + a + 1, solution.begin() + b + 1);
+            } else { // wraparound case
+                std::vector<Node> segment;
+
+                segment.insert(segment.end(), solution.begin() + a + 1, solution.end());
+                segment.insert(segment.end(), solution.begin(), solution.begin() + b + 1);
+
+                std::reverse(segment.begin(), segment.end());
+
+                int idx = a + 1;
+                for (size_t i = 0; i < segment.size(); ++i) {
+                    solution[idx % n] = segment[i];
+                    idx++;
+                }
+            }
             return true;
         }
     }
