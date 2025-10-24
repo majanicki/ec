@@ -1,43 +1,64 @@
 #include <solverlib.cpp>
 
-int main()
-{
+// 1. Greedy + Intra Nodes + Random solution
+// 2. Greedy + Intra Nodes + Greedy solution
+// 3. Greedy + Intra Edges + Random solution
+// 4. Greedy + Intra Edges + Greedy solution
+// 5. Steepest + Intra Nodes + Random solution
+// 6. Steepest + Intra Nodes + Greedy solution
+// 7. Steepest + Intra Edges + Random solution
+// 8. Steepest + Intra Edges + Greedy solution
+
+void benchmark_solutions(const std::vector<Node> dataset, CostMatrix dist, const std::string& suffix) {
+    std::vector<Solution> solutions_greedy_nodes_randominit;
+    std::vector<Solution> solutions_greedy_nodes_greedyinit;
+    std::vector<Solution> solutions_greedy_edges_randominit;
+    std::vector<Solution> solutions_greedy_edges_greedyinit;
+
+    std::vector<Solution> solutions_steepest_nodes_randominit;
+    std::vector<Solution> solutions_steepest_nodes_greedyinit;
+    std::vector<Solution> solutions_steepest_edges_randominit;
+    std::vector<Solution> solutions_steepest_edges_greedyinit;
+
+    // greedy init solutions
+    for (size_t i = 0; i < dataset.size(); i++)
+    {
+        Solution initial_solution = get_nearest_neighbor_every_position_new(dataset, dist, i);
+        solutions_steepest_nodes_greedyinit.push_back(get_local_search_steepest(initial_solution, dataset, dist, INTRA_ROUTE_NODE_EXCHANGE));
+        solutions_steepest_edges_greedyinit.push_back(get_local_search_steepest(initial_solution, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
+        solutions_greedy_nodes_greedyinit.push_back(get_local_search_greedy(initial_solution, dataset, dist, INTRA_ROUTE_NODE_EXCHANGE));
+        solutions_greedy_edges_greedyinit.push_back(get_local_search_greedy(initial_solution, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
+    }
+
+    // random init solutions
+    for (size_t i = 0; i < dataset.size(); i++)
+    {
+        Solution initial_solution = get_random_solution(dataset);
+        solutions_steepest_nodes_randominit.push_back(get_local_search_steepest(initial_solution, dataset, dist, INTRA_ROUTE_NODE_EXCHANGE));
+        solutions_steepest_edges_randominit.push_back(get_local_search_steepest(initial_solution, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
+        solutions_greedy_nodes_randominit.push_back(get_local_search_greedy(initial_solution, dataset, dist, INTRA_ROUTE_NODE_EXCHANGE));
+        solutions_greedy_edges_randominit.push_back(get_local_search_greedy(initial_solution, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
+    }
+
+    print_stats(solutions_greedy_nodes_randominit, dataset, dist, "greedy_intra_nodes_randominit" + suffix);
+    print_stats(solutions_greedy_nodes_greedyinit, dataset, dist, "greedy_intra_nodes_greedyinit" + suffix);
+    print_stats(solutions_greedy_edges_randominit, dataset, dist, "greedy_intra_edges_randominit" + suffix);
+    print_stats(solutions_greedy_edges_greedyinit, dataset, dist, "greedy_intra_edges_greedyinit" + suffix);
+
+    print_stats(solutions_steepest_nodes_randominit, dataset, dist, "steepest_intra_nodes_randominit" + suffix);
+    print_stats(solutions_steepest_nodes_greedyinit, dataset, dist, "steepest_intra_nodes_greedyinit" + suffix);
+    print_stats(solutions_steepest_edges_randominit, dataset, dist, "steepest_intra_edges_randominit" + suffix);
+    print_stats(solutions_steepest_edges_greedyinit, dataset, dist, "steepest_intra_edges_greedyinit" + suffix);
+}
+
+int main() {
     char *whole_file = read_file("./TSPA.csv");
     Dataset dataset = parse_dataset(whole_file);
     CostMatrix dist = compute_distance_matrix(dataset);
-    std::vector<Solution> solutions;
-    std::vector<Solution> seed_solutions;
-    for (int i = 0; i < 200; i++)
-    {
-        Solution initial_solution = get_nearest_neighbor_every_position_new(dataset, dist, i);
-        solutions.push_back(get_local_search_steepest(initial_solution, dataset, dist));
-        seed_solutions.push_back(initial_solution);
-    }
-    Solution best_solution = get_best_solution(solutions, dist);
-    double min_cost = measure_min(solutions, dist);
-    double mean_cost = measure_mean(solutions, dist);
-    double max_cost = measure_max(solutions, dist);
 
-    std::string lore = "New method min: " + std::to_string((int)min_cost) +
-                       ", mean: " + std::to_string((int)mean_cost) +
-                       ", max: " + std::to_string((int)max_cost);
+    SetTraceLogLevel(LOG_NONE);
+    InitWindow(1, 1, "This is a title");
+    SetWindowState(FLAG_WINDOW_HIDDEN);
 
-    min_cost = measure_min(seed_solutions, dist);
-    mean_cost = measure_mean(seed_solutions, dist);
-    max_cost = measure_max(seed_solutions, dist);
-
-    std::string lore_seed = "Seed min: " + std::to_string((int)min_cost) +
-                            ", mean: " + std::to_string((int)mean_cost) +
-                            ", max: " + std::to_string((int)max_cost);
-    InitWindow(1000, 500, "Test");
-
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
-        ClearBackground(WHITE);
-        visualize_solution(best_solution, dataset, 1000, 500);
-        DrawText(lore.c_str(), 10, 10, 7, BLACK);
-        DrawText(lore_seed.c_str(), 10, 20, 7, BLACK);
-        EndDrawing();
-    }
+    benchmark_solutions(dataset, dist, "_a");
 }
