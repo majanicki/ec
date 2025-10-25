@@ -41,13 +41,13 @@ void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, cons
         for (size_t i = 0; i < iterations; ++i) {
             Solution initial_solution;
 
+            auto start = std::chrono::high_resolution_clock::now();
             if (approach.init_type == "Random") {
                 initial_solution = get_random_solution(dataset);
             } else {
                 initial_solution = get_nearest_neighbor_every_position_new(dataset, dist, i);
             }
 
-            auto start = std::chrono::high_resolution_clock::now();
             Solution final_solution;
             if (approach.local_search == "Greedy") {
                 final_solution = get_local_search_greedy(initial_solution, dataset, dist, approach.intra_kind);
@@ -87,10 +87,13 @@ int main() {
     InitWindow(1, 1, "This is a title");
     SetWindowState(FLAG_WINDOW_HIDDEN);
 
-    char *whole_file = read_file("./TSPA.csv");
-    Dataset dataset = parse_dataset(whole_file);
-    CostMatrix dist = compute_distance_matrix(dataset);
+    char       *whole_file_a = read_file("./TSPA.csv");
+    Dataset    dataset_a = parse_dataset(whole_file_a);
+    CostMatrix dist_a = compute_distance_matrix(dataset_a);
+    benchmark_solutions(dataset_a, dist_a, "_a");
 
-
-    benchmark_solutions(dataset, dist, "_a");
+    char       *whole_file_b = read_file("./TSPB.csv");
+    Dataset    dataset_b = parse_dataset(whole_file_b);
+    CostMatrix dist_b = compute_distance_matrix(dataset_b);
+    benchmark_solutions(dataset_b, dist_b, "_b");
 }
