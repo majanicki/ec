@@ -238,27 +238,28 @@ FUNCTION local_search_steepest(solution, dataset, dist, intra_kind):
 ## TSPA
 
 | Algorithm                             | Time (Mean (Min, Max)) [ms] |
-| Local Search Greedy + Intra Nodes + Random Start   | 36.55 (15.45, 73.53)        |
-| Local Search Greedy + Intra Nodes + Greedy Start   | 1.11 (0.39, 3.87)           |
-| Local Search Greedy + Intra Edges + Random Start   | 48.66 (23.50, 73.70)        |
-| Local Search Greedy + Intra Edges + Greedy Start   | 1.78 (0.53, 3.45)           |
-| Local Search Steepest + Intra Nodes + Random Start | 21.51 (16.83, 28.37)        |
-| Local Search Steepest + Intra Nodes + Greedy Start | 0.62 (0.14, 1.53)           |
-| Local Search Steepest + Intra Edges + Random Start | 15.18 (13.46, 18.78)        |
-| Local Search Steepest + Intra Edges + Greedy Start | 1.37 (0.34, 2.38)           |
+|---------------------------------------|------------------------------|
+| Local Search Greedy + Intra Nodes + Random Start   | 36.36 (16.00, 69.92)        |
+| Local Search Greedy + Intra Nodes + Greedy Start   | 2.49 (1.80, 5.13)           |
+| Local Search Greedy + Intra Edges + Random Start   | 48.81 (23.56, 70.97)        |
+| Local Search Greedy + Intra Edges + Greedy Start   | 3.28 (1.95, 5.24)           |
+| Local Search Steepest + Intra Nodes + Random Start | 21.89 (16.96, 31.65)        |
+| Local Search Steepest + Intra Nodes + Greedy Start | 2.10 (1.55, 3.00)           |
+| Local Search Steepest + Intra Edges + Random Start | 15.45 (13.59, 19.09)        |
+| Local Search Steepest + Intra Edges + Greedy Start | 2.78 (1.83, 3.85)           |
 
 ## TSPB
 
 | Algorithm                             | Time (Mean (Min, Max)) [ms] |
 |---------------------------------------|------------------------------|
-| Local Search Greedy + Intra Nodes + Random Start   | 35.96 (19.61, 59.22)        |
-| Local Search Greedy + Intra Nodes + Greedy Start   | 1.28 (0.44, 6.46)           |
-| Local Search Greedy + Intra Edges + Random Start   | 42.68 (22.48, 62.75)        |
-| Local Search Greedy + Intra Edges + Greedy Start   | 1.52 (0.37, 6.75)           |
-| Local Search Steepest + Intra Nodes + Random Start | 22.01 (17.67, 31.58)        |
-| Local Search Steepest + Intra Nodes + Greedy Start | 0.89 (0.40, 3.40)           |
-| Local Search Steepest + Intra Edges + Random Start | 15.51 (13.22, 20.58)        |
-| Local Search Steepest + Intra Edges + Greedy Start | 0.92 (0.46, 3.47)           |
+| Local Search Greedy + Intra Nodes + Random Start   | 35.84 (19.78, 59.54)        |
+| Local Search Greedy + Intra Nodes + Greedy Start   | 2.67 (1.85, 7.62)           |
+| Local Search Greedy + Intra Edges + Random Start   | 42.71 (22.79, 62.96)        |
+| Local Search Greedy + Intra Edges + Greedy Start   | 2.92 (1.77, 7.81)           |
+| Local Search Steepest + Intra Nodes + Random Start | 22.20 (17.60, 29.57)        |
+| Local Search Steepest + Intra Nodes + Greedy Start | 2.31 (1.81, 4.95)           |
+| Local Search Steepest + Intra Edges + Random Start | 15.45 (13.17, 17.90)        |
+| Local Search Steepest + Intra Edges + Greedy Start | 2.36 (1.86, 4.88)           |
 
 \newpage
 
