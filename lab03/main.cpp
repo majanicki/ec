@@ -83,13 +83,14 @@ void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, cons
 }
 
 int main() {
+    SetTraceLogLevel(LOG_NONE);
+    InitWindow(1, 1, "This is a title");
+    SetWindowState(FLAG_WINDOW_HIDDEN);
+
     char *whole_file = read_file("./TSPA.csv");
     Dataset dataset = parse_dataset(whole_file);
     CostMatrix dist = compute_distance_matrix(dataset);
 
-    SetTraceLogLevel(LOG_NONE);
-    InitWindow(1, 1, "This is a title");
-    SetWindowState(FLAG_WINDOW_HIDDEN);
 
     benchmark_solutions(dataset, dist, "_a");
 }
