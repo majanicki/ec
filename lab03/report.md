@@ -93,6 +93,8 @@ FUNCTION get_random_improving_move(solution, dataset, dist, used, intra_kind):
     intra_b := 1
     range_start := 0
     range_end := 1
+    random_solution_indicies := RANDOM_SEQUENCE(0, solution.size())
+    random_dataset_indicies := RANDOM_SEQUENCE(0, dataset.size())
 
     WHILE range_end - range_start >= 0:
         move_kind := RANDOM_INT(range_start, range_end)
@@ -106,7 +108,7 @@ FUNCTION get_random_improving_move(solution, dataset, dist, used, intra_kind):
             IF used[inter_dataset_index]:
                 inter_dataset_index += 1
                 CONTINUE
-            move := INTER_ROUTE_MOVE(inter_solution_index, inter_dataset_index)
+            move := INTER_ROUTE_MOVE(random_solution_indicies[inter_solution_index], random_dataset_indicies[inter_dataset_index])
             delta := get_move_delta(move, solution, dataset, dist)
             IF delta < 0: RETURN move
             inter_dataset_index += 1
@@ -117,8 +119,8 @@ FUNCTION get_random_improving_move(solution, dataset, dist, used, intra_kind):
                 IF intra_a >= solution.size OR intra_b >= solution.size:
                     range_end := 0
                     CONTINUE
-            IF intra_kind == NODE_EXCHANGE: move := INTRA_NODE_EXCHANGE_MOVE(intra_a, intra_b)
-            ELSE IF intra_kind == EDGE_EXCHANGE: move := INTRA_EDGE_EXCHANGE_MOVE(intra_a, intra_b)
+            IF intra_kind == NODE_EXCHANGE: move := INTRA_NODE_EXCHANGE_MOVE(random_solution_indicies[intra_a], random_solution_indicies[intra_b])
+            ELSE IF intra_kind == EDGE_EXCHANGE: move := INTRA_EDGE_EXCHANGE_MOVE(random_solution_indicies[intra_a], random_solution_indicies[intra_b])
             delta := get_move_delta(move, solution, dataset, dist)
             IF delta < 0: RETURN move
             intra_b += 1
