@@ -407,3 +407,6 @@ All solutions were checked with solution checker.
 # Conclusions
 
 - Steepest algorithm achieved better results, run faster and was easier to implement than greedy in this problem instance
+- Starting from greedy-produced solution consistently gave better results than random
+- Local search seems to dominate all other methods on both TSPA and TSPB
+- Steepest approach with intra-edge moves and greedy start produces the lowerst overall result among every other method.
