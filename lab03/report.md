@@ -1,8 +1,9 @@
 ---
-geometry: margin=30mm
+geometry: margin=10mm
+fontsize: 4pt
 ...
 
-# Report Laboratories 2
+# Report Laboratories 3
 
 Maciej Janicki 156073
 Jakub Kubiak 156049
@@ -24,26 +25,35 @@ FUNCTION get_move_delta(move, solution, dataset, dist):
     SWITCH move.kind:
         CASE INTER_ROUTE:
             candidate := dataset[move.dataset_index]
-            prev_node := solution[move.solution_index - 1 if move.solution_index > 0 else solution.size - 1]
+            prev_node := solution[move.solution_index - 1 
+                        if move.solution_index > 0 else solution.size - 1]
             swap_out_node := solution[move.solution_index]
             next_node := solution[(move.solution_index + 1) % solution.size]
-            old_cost := dist(prev_node, swap_out_node) + dist(swap_out_node, next_node) + swap_out_node.cost
-            new_cost := dist(prev_node, candidate) + dist(candidate, next_node) + candidate.cost
+            old_cost := dist(prev_node, swap_out_node) + 
+                        dist(swap_out_node, next_node) + swap_out_node.cost
+            new_cost := dist(prev_node, candidate) + 
+                        dist(candidate, next_node) + candidate.cost
             RETURN new_cost - old_cost
 
         CASE INTRA_ROUTE_NODE_EXCHANGE:
             node_a := solution[move.swap_index_a]
             node_b := solution[move.swap_index_b]
-            prev_a := solution[move.swap_index_a - 1 if move.swap_index_a > 0 else solution.size - 1]
+            prev_a := solution[move.swap_index_a - 1 
+                        if move.swap_index_a > 0 else solution.size - 1]
             next_a := solution[(move.swap_index_a + 1) % solution.size]
-            prev_b := solution[move.swap_index_b - 1 if move.swap_index_b > 0 else solution.size - 1]
+            prev_b := solution[move.swap_index_b - 1 
+                        if move.swap_index_b > 0 else solution.size - 1]
             next_b := solution[(move.swap_index_b + 1) % solution.size]
             IF next_a.id == node_b.id OR next_b.id == node_a.id:
-                old_cost := dist(prev_a, node_a) + dist(node_a, node_b) + dist(node_b, next_b)
-                new_cost := dist(prev_a, node_b) + dist(node_b, node_a) + dist(node_a, next_b)
+                old_cost := dist(prev_a, node_a) +
+                            dist(node_a, node_b) + dist(node_b, next_b)
+                new_cost := dist(prev_a, node_b) 
+                            + dist(node_b, node_a) + dist(node_a, next_b)
             ELSE:
-                old_cost := dist(prev_a, node_a) + dist(node_a, next_a) + dist(prev_b, node_b) + dist(node_b, next_b)
-                new_cost := dist(prev_a, node_b) + dist(node_b, next_a) + dist(prev_b, node_a) + dist(node_a, next_b)
+                old_cost := dist(prev_a, node_a) + dist(node_a, next_a) 
+                            + dist(prev_b, node_b) + dist(node_b, next_b)
+                new_cost := dist(prev_a, node_b) + dist(node_b, next_a) 
+                            + dist(prev_b, node_a) + dist(node_a, next_b)
             RETURN new_cost - old_cost
 
         CASE INTRA_ROUTE_EDGE_EXCHANGE:
@@ -108,7 +118,8 @@ FUNCTION get_random_improving_move(solution, dataset, dist, used, intra_kind):
             IF used[inter_dataset_index]:
                 inter_dataset_index += 1
                 CONTINUE
-            move := INTER_ROUTE_MOVE(random_solution_indicies[inter_solution_index], random_dataset_indicies[inter_dataset_index])
+            move := INTER_ROUTE_MOVE(random_solution_indicies[inter_solution_index], 
+                    random_dataset_indicies[inter_dataset_index])
             delta := get_move_delta(move, solution, dataset, dist)
             IF delta < 0: RETURN move
             inter_dataset_index += 1
@@ -119,8 +130,12 @@ FUNCTION get_random_improving_move(solution, dataset, dist, used, intra_kind):
                 IF intra_a >= solution.size OR intra_b >= solution.size:
                     range_end := 0
                     CONTINUE
-            IF intra_kind == NODE_EXCHANGE: move := INTRA_NODE_EXCHANGE_MOVE(random_solution_indicies[intra_a], random_solution_indicies[intra_b])
-            ELSE IF intra_kind == EDGE_EXCHANGE: move := INTRA_EDGE_EXCHANGE_MOVE(random_solution_indicies[intra_a], random_solution_indicies[intra_b])
+            IF intra_kind == NODE_EXCHANGE: move := INTRA_NODE_EXCHANGE_MOVE(
+                                    random_solution_indicies[intra_a],
+                                    random_solution_indicies[intra_b])
+            ELSE IF intra_kind == EDGE_EXCHANGE: move := INTRA_EDGE_EXCHANGE_MOVE(
+                                    random_solution_indicies[intra_a],
+                                    random_solution_indicies[intra_b])
             delta := get_move_delta(move, solution, dataset, dist)
             IF delta < 0: RETURN move
             intra_b += 1
@@ -181,8 +196,6 @@ FUNCTION local_search_steepest(solution, dataset, dist, intra_kind):
 \newpage
 
 # Result Comparison
-
-## TSPA
 
 | Algorithm                                                | TSPA Cost (Mean (Min, Max))      | TSPB Cost (Mean (Min, Max)) |
 | -------------------------------------------------------- | -------------------------------- | -------------------------- |
