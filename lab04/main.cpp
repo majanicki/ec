@@ -1,39 +1,86 @@
+#include "raylib.h"
 #include <solverlib.cpp>
+#include <chrono>
+#include <iomanip>
+
+void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, const std::string &suffix) {
+    struct Approach {
+        std::string label;
+        std::string filename_prefix;
+        bool use_candidate;
+        MoveKind intra_kind;
+        int n_candidates;
+    };
+
+    std::vector<Approach> approaches = {
+        {"Baseline Steepest Local Search", "baseline_steepest_local_search", false, INTRA_ROUTE_EDGE_EXCHANGE, 0},
+        {"Candidate Steepest Local Search", "candidate_steepest_local_search_10", true, INTRA_ROUTE_EDGE_EXCHANGE, 10},
+        {"Candidate Steepest Local Search", "candidate_steepest_local_search_5", true, INTRA_ROUTE_EDGE_EXCHANGE, 5},
+        {"Candidate Steepest Local Search", "candidate_steepest_local_search_15", true, INTRA_ROUTE_EDGE_EXCHANGE, 15}
+    };
+
+    size_t iterations = dataset.size();
+    std::vector<Solution> initial_solutions;
+    for (size_t i = 0; i < iterations; ++i) {
+        initial_solutions.push_back(get_random_solution(dataset));
+    }
+
+    for (const auto &approach : approaches) {
+        std::vector<Solution> solutions;
+        std::vector<double> iteration_times;
+
+        for (size_t i = 0; i < iterations; ++i) {
+            Solution initial_solution = initial_solutions[i];
+            auto start = std::chrono::high_resolution_clock::now();
+            Solution final_solution;
+
+            if (approach.use_candidate) {
+                final_solution = get_local_search_candidate(initial_solution, dataset, dist, approach.intra_kind, approach.n_candidates);
+            } else {
+                final_solution = get_local_search_steepest(initial_solution, dataset, dist, approach.intra_kind);
+            }
+
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = end - start;
+            iteration_times.push_back(elapsed.count());
+            solutions.push_back(final_solution);
+        }
+
+        double total_time = 0.0, min_time = iteration_times[0], max_time = iteration_times[0];
+        for (double t : iteration_times) {
+            total_time += t;
+            if (t < min_time) min_time = t;
+            if (t > max_time) max_time = t;
+        }
+        double avg_time = total_time / iterations;
+
+        std::cout << approach.label << " | Avg time: " << std::fixed << std::setprecision(2) << avg_time
+                  << " ms (" << min_time << ", " << max_time << ") \n";
+
+
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << avg_time;
+        std::string avg_time_str = oss.str();
+        std::string lore = approach.label + " | Avg time: " + avg_time_str + " ms | ";
+
+        std::string filename = approach.filename_prefix + suffix;
+        print_stats(solutions, dataset, dist, filename, lore);
+
+    }
+}
 
 int main() {
-
+    SetTraceLogLevel(LOG_NONE);
+    InitWindow(1, 1, "This is a title");
+    SetWindowState(FLAG_WINDOW_HIDDEN);
 
     char       *whole_file_a = read_file("./TSPA.csv");
     Dataset    dataset_a = parse_dataset(whole_file_a);
     CostMatrix dist_a = compute_distance_matrix(dataset_a);
-    size_t iterations = dataset_a.size();
+    benchmark_solutions(dataset_a, dist_a, "_a");
 
-    std::vector<Solution> solutions;
-    for (size_t i = 0; i < iterations; ++i) {
-        Solution solution = get_random_solution(dataset_a);
-        solutions.push_back(get_local_search_candidate(solution, dataset_a, dist_a, INTRA_ROUTE_EDGE_EXCHANGE, 10));
-        // solutions.push_back(get_local_search_steepest(solution, dataset_a, dist_a, INTRA_ROUTE_EDGE_EXCHANGE));
-        // solutions.push_back(solution);
-        std::cout << i << std::endl;
-    }
-    double min_cost  = measure_min(solutions, dist_a);
-    double mean_cost = measure_mean(solutions, dist_a);
-    double max_cost  = measure_max(solutions, dist_a);
-
-    Solution best_solution = get_best_solution(solutions, dist_a);
-    std::string lore = "";
-    lore += "Score: " + std::to_string((int)mean_cost) +
-            " (" + std::to_string((int)min_cost) + ", " + std::to_string((int)max_cost) + ")";
-
-    SetTraceLogLevel(LOG_NONE);
-    InitWindow(2000, 1000, "This is a title");
-    // SetWindowState(FLAG_WINDOW_HIDDEN);
-    while(!WindowShouldClose()) {
-        BeginDrawing();
-        ClearBackground(WHITE);
-        visualize_solution(best_solution, dataset_a, 2000, 1000);
-        DrawText(lore.c_str(), 10, 10, 70, BLACK);
-        EndDrawing();
-    }
-
+    char       *whole_file_b = read_file("./TSPB.csv");
+    Dataset    dataset_b = parse_dataset(whole_file_b);
+    CostMatrix dist_b = compute_distance_matrix(dataset_b);
+    benchmark_solutions(dataset_b, dist_b, "_b");
 }
