@@ -3,8 +3,10 @@
 #include <chrono>
 #include <iomanip>
 
-void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, const std::string &suffix) {
-    struct Approach {
+void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, const std::string &suffix)
+{
+    struct Approach
+    {
         std::string label;
         std::string filename_prefix;
         bool use_candidate;
@@ -15,28 +17,33 @@ void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, cons
     std::vector<Approach> approaches = {
         {"Baseline Steepest Local Search", "baseline_steepest_local_search", false, INTRA_ROUTE_EDGE_EXCHANGE, 0},
         {"Candidate Steepest Local Search", "candidate_steepest_local_search_10", true, INTRA_ROUTE_EDGE_EXCHANGE, 10},
-        {"Candidate Steepest Local Search", "candidate_steepest_local_search_5", true, INTRA_ROUTE_EDGE_EXCHANGE, 5},
-        {"Candidate Steepest Local Search", "candidate_steepest_local_search_15", true, INTRA_ROUTE_EDGE_EXCHANGE, 15}
-    };
+        {"Candidate Steepest Local Search", "candidate_steepest_local_search_15", true, INTRA_ROUTE_EDGE_EXCHANGE, 15},
+        {"Candidate Steepest Local Search", "candidate_steepest_local_search_20", true, INTRA_ROUTE_EDGE_EXCHANGE, 20}};
 
     size_t iterations = dataset.size();
     std::vector<Solution> initial_solutions;
-    for (size_t i = 0; i < iterations; ++i) {
+    for (size_t i = 0; i < iterations; ++i)
+    {
         initial_solutions.push_back(get_random_solution(dataset));
     }
 
-    for (const auto &approach : approaches) {
+    for (const auto &approach : approaches)
+    {
         std::vector<Solution> solutions;
         std::vector<double> iteration_times;
 
-        for (size_t i = 0; i < iterations; ++i) {
+        for (size_t i = 0; i < iterations; ++i)
+        {
             Solution initial_solution = initial_solutions[i];
             auto start = std::chrono::high_resolution_clock::now();
             Solution final_solution;
 
-            if (approach.use_candidate) {
+            if (approach.use_candidate)
+            {
                 final_solution = get_local_search_candidate(initial_solution, dataset, dist, approach.intra_kind, approach.n_candidates);
-            } else {
+            }
+            else
+            {
                 final_solution = get_local_search_steepest(initial_solution, dataset, dist, approach.intra_kind);
             }
 
@@ -47,16 +54,18 @@ void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, cons
         }
 
         double total_time = 0.0, min_time = iteration_times[0], max_time = iteration_times[0];
-        for (double t : iteration_times) {
+        for (double t : iteration_times)
+        {
             total_time += t;
-            if (t < min_time) min_time = t;
-            if (t > max_time) max_time = t;
+            if (t < min_time)
+                min_time = t;
+            if (t > max_time)
+                max_time = t;
         }
         double avg_time = total_time / iterations;
 
         std::cout << approach.label << " | Avg time: " << std::fixed << std::setprecision(2) << avg_time
                   << " ms (" << min_time << ", " << max_time << ") \n";
-
 
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(2) << avg_time;
@@ -65,22 +74,22 @@ void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, cons
 
         std::string filename = approach.filename_prefix + suffix;
         print_stats(solutions, dataset, dist, filename, lore);
-
     }
 }
 
-int main() {
+int main()
+{
     SetTraceLogLevel(LOG_NONE);
     InitWindow(1, 1, "This is a title");
     SetWindowState(FLAG_WINDOW_HIDDEN);
 
-    char       *whole_file_a = read_file("./TSPA.csv");
-    Dataset    dataset_a = parse_dataset(whole_file_a);
+    char *whole_file_a = read_file("./TSPA.csv");
+    Dataset dataset_a = parse_dataset(whole_file_a);
     CostMatrix dist_a = compute_distance_matrix(dataset_a);
     benchmark_solutions(dataset_a, dist_a, "_a");
 
-    char       *whole_file_b = read_file("./TSPB.csv");
-    Dataset    dataset_b = parse_dataset(whole_file_b);
+    char *whole_file_b = read_file("./TSPB.csv");
+    Dataset dataset_b = parse_dataset(whole_file_b);
     CostMatrix dist_b = compute_distance_matrix(dataset_b);
     benchmark_solutions(dataset_b, dist_b, "_b");
 }

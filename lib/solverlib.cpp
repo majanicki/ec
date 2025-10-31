@@ -928,66 +928,6 @@ Solution get_local_search_steepest(Solution solution, const Dataset &dataset, Co
     return solution;
 }
 
-
-Move get_best_move_candidate(const Solution& solution, const Dataset &dataset, CostMatrix dist,
-                            const std::vector<bool>& used, MoveKind intra_route_move_kind, int n_candidates) {
-    // inter edge candidates
-    Move best_move;
-    best_move.valid = false;
-    int best_delta = 0;
-    for(size_t i = 0; i < solution.size(); i++) {
-        std::vector<std::pair<int, int>> queue;
-        Node candidate = solution[i];
-        for (size_t j = 0; j < dataset.size(); j++) {
-            if(used[j]) continue;
-            int distance =  dist.get(candidate, dataset[j]) + dataset[j].cost;
-            queue.emplace_back(distance, j);
-        }
-
-        std::nth_element(queue.begin(), queue.begin() + n_candidates, queue.end(),
-                [](auto& a, auto& b){ return a.first < b.first; });
-        queue.resize(n_candidates);
-        for (const auto& [distance, index] : queue) {
-            Move move = move_inter_route(i, index);
-            int delta = get_move_delta(move, solution, dataset, dist);
-            if(delta < best_delta) {
-                best_move = move;
-                best_delta = delta;
-            }
-        }
-    }
-    int shift = 0;
-    if(intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) shift = 2;
-    else if(intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE) shift = 1;
-
-    for(size_t i = 0; i < solution.size() - shift; i++) {
-        std::vector<std::pair<int, int>> queue;
-        Node node_a = solution[i];
-        for(size_t j = i + shift; j < solution.size(); j++) { 
-            Node node_b = solution[j];
-            int distance = dist.get(node_a, node_b);
-            queue.emplace_back(distance, j);
-        }
-        std::nth_element(queue.begin(), queue.begin() + n_candidates, queue.end(),
-                [](auto& a, auto& b){ return a.first < b.first; });
-        queue.resize(n_candidates);
-        for (const auto& [distance, j] : queue) {
-            Move move;
-            if (intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
-                move = move_intra_route_node_exchange(i, j);
-            } else if(intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE) {
-                move = move_intra_route_edge_exchange(i, j);
-            }
-            int delta = get_move_delta(move, solution, dataset, dist);
-            if(delta < best_delta) {
-                best_move = move;
-                best_delta = delta;
-            }
-        }
-    }
-    return best_move;
-}
-
 bool solution_valid(const Solution& solution, const Dataset &dataset) {
     std::vector<bool> used(dataset.size(), false);
     for(size_t i = 0; i < solution.size(); i++) {
@@ -998,18 +938,83 @@ bool solution_valid(const Solution& solution, const Dataset &dataset) {
     return true;
 }
 
-Solution get_local_search_candidate(Solution solution, const Dataset &dataset, CostMatrix dist, MoveKind intra_route_move_kind, int n_candidates) {
-    std::vector<bool> used(dataset.size(), false);
+std::vector<std::vector<int>> precompute_nearest_neighbors(const Dataset &dataset, CostMatrix &dist, int n_candidates) {
+    size_t n = dataset.size();
+    std::vector<std::vector<int>> neighbors(n);
+
+    for (size_t i = 0; i < n; i++) {
+        std::vector<std::pair<int,int>> queue;
+        for (size_t j = 0; j < n; j++) {
+            if (i == j) continue;
+            int cost = dist.get(dataset[i], dataset[j]) + dataset[j].cost;
+            queue.emplace_back(cost, j);
+        }
+        std::nth_element(queue.begin(), queue.begin() + std::min(n_candidates, (int)queue.size()), queue.end(),
+                         [](auto &a, auto &b){ return a.first < b.first; });
+        int count = std::min(n_candidates, (int)queue.size());
+        neighbors[i].resize(count);
+        for (int k = 0; k < count; k++) neighbors[i][k] = queue[k].second;
+    }
+    return neighbors;
+}
+
+Move get_best_move_candidate(const Solution& solution, const Dataset &dataset, CostMatrix dist,
+                                         const std::vector<bool>& used, MoveKind intra_route_move_kind,
+                                         const std::vector<std::vector<int>>& inter_neighbors) {
+    Move best_move;
+    best_move.valid = false;
+    int best_delta = 0;
+
     for (size_t i = 0; i < solution.size(); i++) {
-        used[solution[i].id] = true;
+        Node candidate = solution[i];
+        for (int j : inter_neighbors[candidate.id]) {
+            if (used[j]) continue;
+            Move move = move_inter_route(i, j);
+            int delta = get_move_delta(move, solution, dataset, dist);
+            if (delta < best_delta) {
+                best_move = move;
+                best_delta = delta;
+            }
+        }
     }
 
+    int shift = (intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) ? 2 :
+                (intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE) ? 1 : 0;
+
+    for (size_t i = 0; i < solution.size() - shift; i++) {
+        for (size_t j = i + shift; j < solution.size(); j++) {
+            Move move;
+            if (intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE)
+                move = move_intra_route_node_exchange(i, j);
+            else if (intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE)
+                move = move_intra_route_edge_exchange(i, j);
+            else
+                continue;
+
+            int delta = get_move_delta(move, solution, dataset, dist);
+            if (delta < best_delta) {
+                best_move = move;
+                best_delta = delta;
+            }
+        }
+    }
+
+    return best_move;
+}
+
+Solution get_local_search_candidate(Solution solution, const Dataset &dataset, CostMatrix dist,
+                                                MoveKind intra_route_move_kind, int n_candidates) {
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) used[solution[i].id] = true;
+
+    auto inter_neighbors = precompute_nearest_neighbors(dataset, dist, n_candidates);
+
     bool okay = true;
-    while(okay) {
-        Move best_move = get_best_move_candidate(solution, dataset, dist, used, intra_route_move_kind, n_candidates);
+    while (okay) {
+        Move best_move = get_best_move_candidate(solution, dataset, dist, used, intra_route_move_kind, inter_neighbors);
         okay = act_on_move(best_move, solution, dataset, used);
     }
+
     assert(solution_valid(solution, dataset));
     return solution;
 }
-
