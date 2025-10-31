@@ -200,11 +200,11 @@ FUNCTION get_local_search_candidate(solution, dataset, dist, intra_kind, n_candi
 | Local Search Greedy + Intra Edges + Greedy Start   | 71,067.07 (70,046, 73,486)  | 45,053.77 (43,947, 50,319)  |
 | Local Search Steepest + Intra Nodes + Random Start | 87,883.71 (79,593, 98,325)  | 62,947.23 (54,122, 71,598)  |
 | Local Search Steepest + Intra Nodes + Greedy Start | 72,807.32 (71,034, 74,904)  | 45,414.50 (43,826, 50,876)  |
-| Local Search Steepest + Intra Edges + Random Start | 73,938.93 (71,428, 77,903)  | 48,323.99 (45,670, 51,667)  |
+| **Local Search Steepest + Intra Edges + Random Start** | **73,938.93 (71,428, 77,903)**  | **48,323.99 (45,670, 51,667)**  |
 | Local Search Steepest + Intra Edges + Greedy Start | 70,975.96 (69,864, 73,068)  | 44,974.89 (43,921, 50,319)  |
-| Candidate Local Search Steepest (k=10)             | 80,070.30 (75,097, 75,097)  | 49,548.59 (46,836, 51,921)  |
-| Candidate Local Search Steepest (k=15)             | 76,673.52 (72,509, 80,911)  | 48,723.89 (45,961, 51,644)  |
-| Candidate Local Search Steepest (k=20)             | 75,295.08 (72,316, 79,297)  | 48,457.54 (45,886, 51,560)  |
+| **Candidate Local Search Steepest (k=10)**             | **80,070.30 (75,097, 75,097)**  | **49,548.59 (46,836, 51,921)**  |
+| **Candidate Local Search Steepest (k=15)**             | **76,673.52 (72,509, 80,911)**  | **48,723.89 (45,961, 51,644)**  |
+| **Candidate Local Search Steepest (k=20)**             | **75,295.08 (72,316, 79,297)**  | **48,457.54 (45,886, 51,560)**  |
 
 \newpage
 
@@ -218,11 +218,11 @@ FUNCTION get_local_search_candidate(solution, dataset, dist, intra_kind, n_candi
 | Local Search Greedy + Intra Edges + Greedy Start   | 3.28 (1.95, 5.24)                | 2.92 (1.77, 7.81)                |
 | Local Search Steepest + Intra Nodes + Random Start | 21.89 (16.96, 31.65)             | 22.20 (17.60, 29.57)             |
 | Local Search Steepest + Intra Nodes + Greedy Start | 2.10 (1.55, 3.00)                | 2.31 (1.81, 4.95)                |
-| Local Search Steepest + Intra Edges + Random Start | 15.45 (13.59, 19.09)             | 15.45 (13.17, 17.90)             |
+| **Local Search Steepest + Intra Edges + Random Start** | **15.45 (13.59, 19.09)**             | **15.45 (13.17, 17.90)             |
 | Local Search Steepest + Intra Edges + Greedy Start | 2.78 (1.83, 3.85)                | 2.36 (1.86, 4.88)                |
-| Candidate Local Search Steepest (k=10)             | 4.31 (3.09, 7.61)                | 3.97 (3.26, 9.21)                |
-| Candidate Local Search Steepest (k=15)             | 4.21 (3.74, 4.73)                | 4.17 (3.68, 4.62)                |
-| Candidate Local Search Steepest (k=20)             | 4.92 (4.20, 8.74)                | 4.47 (3.86, 5.23)                |
+| **Candidate Local Search Steepest (k=10)**             | **4.31 (3.09, 7.61)**                | **3.97 (3.26, 9.21)**                |
+| **Candidate Local Search Steepest (k=15)**             | **4.21 (3.74, 4.73)**                | **4.17 (3.68, 4.62)**                |
+| **Candidate Local Search Steepest (k=20)**             | **4.92 (4.20, 8.74)**                | **4.47 (3.86, 5.23)**                |
 
 \newpage
 
