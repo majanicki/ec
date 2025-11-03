@@ -96,7 +96,7 @@ FUNCTION act_on_move(move, solution, dataset, used):
 ## Candidate moves
 
 ```
-FUNCTION precompute_nearest_neighbors(dataset, dist, n_candidates):
+FUNCTION precompute_nearest_neighbors_inter(dataset, dist, n_candidates):
     n := dataset.size
     neighbors := vector of n empty vectors
 
@@ -116,65 +116,34 @@ FUNCTION precompute_nearest_neighbors(dataset, dist, n_candidates):
 
 
 FUNCTION get_best_move_candidate(solution, dataset, dist, used,
-                                 intra_kind, inter_neighbors, n_candidates):
+                                  inter_neighbors, n_candidates):
     best_move.valid := false
     best_delta := 0
 
-    // INTER-ROUTE MOVES
     FOR i IN 0 to solution.size - 1:
         candidate_node := solution[i]
 
         FOR j IN inter_neighbors[candidate_node.id]:
-            IF used[j]: CONTINUE
-
-            move := INTER_ROUTE_MOVE(i, j)
-            delta := get_move_delta(move, solution, dataset, dist)
-
-            IF delta < best_delta:
-                best_move := move
-                best_delta := delta
-
-    // INTRA-ROUTE MOVES
-    shift := 0
-    IF intra_kind == NODE_EXCHANGE: shift := 2
-    ELSE IF intra_kind == EDGE_EXCHANGE: shift := 1
-
-    FOR i IN 0 to solution.size - shift - 1:
-        FOR j IN i + shift to solution.size - 1:
-            IF intra_kind == NODE_EXCHANGE:
-                move := INTRA_NODE_EXCHANGE_MOVE(i, j)
-            ELSE IF intra_kind == EDGE_EXCHANGE:
-                move := INTRA_EDGE_EXCHANGE_MOVE(i, j)
+            IF used[j]:
+              move := INTRA_EDGE_EXCHANGE_MOVE(i, j)
             ELSE:
-                CONTINUE
-
+              move := INTER_ROUTE_MOVE(i, j)
             delta := get_move_delta(move, solution, dataset, dist)
-
             IF delta < best_delta:
                 best_move := move
                 best_delta := delta
-
     RETURN best_move
 
-
-FUNCTION solution_valid(solution, dataset):
-    used := array(dataset.size) initialized false
-    FOR node IN solution:
-        IF used[node.id]: RETURN false
-        used[node.id] := true
-    RETURN true
-
-FUNCTION get_local_search_candidate(solution, dataset, dist, intra_kind, n_candidates):
+FUNCTION get_local_search_candidate(solution, dataset, dist, n_candidates):
     used := array(dataset.size) initialized false
     FOR node IN solution:
         used[node.id] := true
 
     WHILE true:
-        move := get_best_move_candidate(solution, dataset, dist, used, intra_kind, n_candidates)
+        move := get_best_move_candidate(solution, dataset, dist, used, n_candidates)
         IF NOT act_on_move(move, solution, dataset, used):
             BREAK
 
-    ASSERT solution_valid(solution, dataset)
     RETURN solution
 ```
 
@@ -202,7 +171,7 @@ FUNCTION get_local_search_candidate(solution, dataset, dist, intra_kind, n_candi
 | Local Search Steepest + Intra Nodes + Greedy Start | 72,807.32 (71,034, 74,904)  | 45,414.50 (43,826, 50,876)  |
 | **Local Search Steepest + Intra Edges + Random Start** | **73,938.93 (71,428, 77,903)**  | **48,323.99 (45,670, 51,667)**  |
 | Local Search Steepest + Intra Edges + Greedy Start | 70,975.96 (69,864, 73,068)  | 44,974.89 (43,921, 50,319)  |
-| **Candidate Local Search Steepest (k=10)**             | **80,070.30 (75,097, 75,097)**  | **49,548.59 (46,836, 51,921)**  |
+| **Candidate Local Search Steepest (k=10)**             | **80,070.30 (75,097, 85,343)**  | **49,548.59 (46,836, 51,921)**  |
 | **Candidate Local Search Steepest (k=15)**             | **76,673.52 (72,509, 80,911)**  | **48,723.89 (45,961, 51,644)**  |
 | **Candidate Local Search Steepest (k=20)**             | **75,295.08 (72,316, 79,297)**  | **48,457.54 (45,886, 51,560)**  |
 
