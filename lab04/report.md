@@ -255,3 +255,5 @@ All solutions were checked with solution checker.
 
 - Evaluating only a subset of 'nearest' neighbors is enough to capture the good moves
 - Candidate approach might be a good alternative for the greedy approaches, especially for larger instances, where the number of neighbors to evaluate is too large to be feasible.
+- Execution speed of the candidate search heavily relies on implementation details, whether candidates are cached and datastructures used to sort them
+- When the number of candidates increases, results improve at expense of execution time.
