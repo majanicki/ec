@@ -1018,3 +1018,283 @@ Solution get_local_search_candidate(Solution solution, const Dataset &dataset, C
     assert(solution_valid(solution, dataset));
     return solution;
 }
+
+struct DirEdge {
+    int u_id;
+    int v_id;
+};
+
+enum EdgeCheck {
+    EDGES_MISSING,   // at least one removed edge no longer exists in current solution
+    EDGES_REVERSED,  // all removed edges exist, but reversed in direction
+    EDGES_SAME       // all removed edges exist in the same direction
+};
+
+struct MoveId {
+    MoveKind kind;
+    int out_node_id;
+    int in_node_id;
+    int node_a_id;
+    int node_b_id;
+    bool valid = false;
+};
+
+struct LMEntry {
+    MoveId move;
+    int delta;
+    std::vector<DirEdge> removed_edges;
+};
+
+
+std::vector<int> build_pos(const std::vector<Node>& sol) {
+    std::vector<int> pos;
+    int max_id = 0;
+    for (auto& x : sol) if (x.id > max_id) max_id = x.id;
+    pos.assign(max_id + 1, -1);
+    for (int i = 0; i < (int)sol.size(); i++) pos[sol[i].id] = i;
+    return pos;
+}
+
+EdgeCheck check_removed_edges(const std::vector<Node>& sol, const std::vector<int>& pos, const std::vector<DirEdge>& removed) {
+    bool all_same = true;
+    bool all_rev = true;
+    for (auto& e : removed) {
+        if (pos[e.u_id] == -1 || pos[e.v_id] == -1) return EDGES_MISSING;
+        
+        int i = pos[e.u_id];
+        int j = (i + 1) % (int)sol.size();
+        bool same = (sol[j].id == e.v_id);
+        
+        i = pos[e.v_id];
+        j = (i + 1) % (int)sol.size();
+        bool rev = (sol[j].id == e.u_id);
+        
+        if (!(same || rev)) return EDGES_MISSING;
+        if (!same) all_same = false;
+        if (!rev)  all_rev  = false;
+    }
+    if (all_same) return EDGES_SAME;
+    if (all_rev)  return EDGES_REVERSED;
+    return EDGES_MISSING;
+}
+
+MoveId to_move_id_from_indices(const Move& m, const std::vector<Node>& sol, const Dataset& dataset) {
+    MoveId r;
+    r.valid = m.valid;
+    r.kind = m.kind;
+    if (m.kind == INTER_ROUTE) {
+        r.out_node_id = sol[m.solution_index].id;
+        r.in_node_id = dataset[m.dataset_index].id;
+    } else if (m.kind == INTRA_ROUTE_NODE_EXCHANGE) {
+        r.node_a_id = sol[m.swap_index_a].id;
+        r.node_b_id = sol[m.swap_index_b].id;
+    } else if (m.kind == INTRA_ROUTE_EDGE_EXCHANGE) {
+        r.node_a_id = sol[m.swap_index_a].id;
+        r.node_b_id = sol[m.swap_index_b].id;
+    }
+    return r;
+}
+
+Move to_indices_from_move_id(const MoveId& m, const std::vector<Node>& sol, const std::vector<int>& pos, const std::vector<bool>& used) {
+    Move r;
+    r.valid = false;
+    if (!m.valid) return r;
+    r.kind = m.kind;
+    if (m.kind == INTER_ROUTE) {
+        if (m.in_node_id < 0 || m.in_node_id >= (int)used.size()) return r;
+        if (used[m.in_node_id]) return r;
+        int si = pos[m.out_node_id];
+        if (si < 0 || si >= (int)sol.size()) return r;
+        int dj = m.in_node_id;
+        r = move_inter_route(si, dj);
+    } else if (m.kind == INTRA_ROUTE_NODE_EXCHANGE) {
+        int a = pos[m.node_a_id];
+        int b = pos[m.node_b_id];
+        if (a < 0 || b < 0 || a == b) return r;
+        r = move_intra_route_node_exchange(a, b);
+    } else if (m.kind == INTRA_ROUTE_EDGE_EXCHANGE) {
+        int a = pos[m.node_a_id];
+        int b = pos[m.node_b_id];
+        if (a < 0 || b < 0 || a == b) return r;
+        r = move_intra_route_edge_exchange(a, b);
+    }
+    r.valid = true;
+    return r;
+}
+
+std::vector<DirEdge> removed_by_move_indices(const Move& m, const std::vector<Node>& sol) {
+    std::vector<DirEdge> rem;
+    int n = (int)sol.size();
+    if (m.kind == INTER_ROUTE) {
+        int i = m.solution_index;
+        int ip = (i == 0) ? n - 1 : i - 1;
+        int in = (i + 1) % n;
+        rem.push_back({sol[ip].id, sol[i].id});
+        rem.push_back({sol[i].id, sol[in].id});
+    } else if (m.kind == INTRA_ROUTE_NODE_EXCHANGE) {
+        int a = m.swap_index_a;
+        int b = m.swap_index_b;
+        int ap = (a == 0) ? n - 1 : a - 1;
+        int an = (a + 1) % n;
+        int bp = (b == 0) ? n - 1 : b - 1;
+        int bn = (b + 1) % n;
+        if (an == b) {
+            rem.push_back({sol[ap].id, sol[a].id});
+            rem.push_back({sol[b].id, sol[bn].id});
+            rem.push_back({sol[a].id, sol[b].id});
+        } else if (bn == a) {
+            rem.push_back({sol[b].id, sol[a].id});
+            rem.push_back({sol[ap].id, sol[a].id});
+            rem.push_back({sol[b].id, sol[bn].id});
+        } else {
+            rem.push_back({sol[ap].id, sol[a].id});
+            rem.push_back({sol[a].id, sol[an].id});
+            rem.push_back({sol[bp].id, sol[b].id});
+            rem.push_back({sol[b].id, sol[bn].id});
+        }
+    } else if (m.kind == INTRA_ROUTE_EDGE_EXCHANGE) {
+        int a = m.swap_index_a;
+        int b = m.swap_index_b;
+        int c = (a + 1) % n;
+        int d = (b + 1) % n;
+        rem.push_back({sol[a].id, sol[c].id});
+        rem.push_back({sol[b].id, sol[d].id});
+    }
+    return rem;
+}
+
+void store_move_variants(
+    const Move& m,
+    const std::vector<Node>& sol,
+    std::vector<LMEntry>& lm,
+    const Dataset& dataset,
+    int delta
+) {
+    LMEntry e;
+    e.move = to_move_id_from_indices(m, sol, dataset);
+    e.delta = delta;
+    e.removed_edges = removed_by_move_indices(m, sol);
+    lm.push_back(e);
+
+    LMEntry inverted = e;
+    for (auto& ed : inverted.removed_edges)
+        std::swap(ed.u_id, ed.v_id);
+    lm.push_back(inverted);
+}
+
+bool browse_LM_and_apply(
+    std::vector<LMEntry>& lm,
+    std::vector<Node>& solution,
+    std::vector<bool>& used,
+    const Dataset& dataset,
+    const CostMatrix& dist
+) {
+    if (lm.empty()) return false;
+    auto pos = build_pos(solution);
+
+    for (size_t i = 0; i < lm.size(); ) {
+        auto& entry = lm[i];
+        auto chk = check_removed_edges(solution, pos, entry.removed_edges);
+
+        if (chk == EDGES_MISSING) {
+            lm[i] = std::move(lm.back());
+            lm.pop_back();
+            continue;
+        }
+
+        if (chk == EDGES_REVERSED) { ++i; continue; }
+
+        Move midx = to_indices_from_move_id(entry.move, solution, pos, used);
+        if (!midx.valid) {
+            lm[i] = std::move(lm.back());
+            lm.pop_back();
+            continue;
+        }
+
+        int delta_now = get_move_delta(midx, solution, dataset, dist);
+        if (delta_now >= 0) {
+            lm[i] = std::move(lm.back());
+            lm.pop_back();
+            continue;
+        }
+
+        if (act_on_move(midx, solution, dataset, used)) {
+            lm[i] = std::move(lm.back());
+            lm.pop_back();
+            return true;
+        }
+
+        ++i;
+    }
+    return false;
+}
+
+Move get_best_move_and_fill_LM(
+    const Solution& solution,
+    const Dataset& dataset,
+    const CostMatrix& dist,
+    const std::vector<bool>& used,
+    MoveKind intra_route_move_kind,
+    std::vector<LMEntry>& lm
+) {
+    Move best_move;
+    best_move.valid = false;
+    int best_delta = 0;
+
+    for (int i = 0; i < (int)solution.size(); i++) {
+        for (int j = 0; j < (int)dataset.size(); j++) {
+            if (used[j]) continue;
+            Move m = move_inter_route(i, j);
+            int d = get_move_delta(m, solution, dataset, dist);
+            if (d < 0) store_move_variants(m, solution, lm, dataset, d);
+            if (d < best_delta) { best_delta = d; best_move = m; }
+        }
+    }
+
+    if (intra_route_move_kind == INTRA_ROUTE_NODE_EXCHANGE) {
+        for (int a = 0; a < (int)solution.size() - 1; a++)
+            for (int b = a + 1; b < (int)solution.size(); b++) {
+                Move m = move_intra_route_node_exchange(a, b);
+                int d = get_move_delta(m, solution, dataset, dist);
+                if (d < 0) store_move_variants(m, solution, lm, dataset, d);
+                if (d < best_delta) { best_delta = d; best_move = m; }
+            }
+    } else if (intra_route_move_kind == INTRA_ROUTE_EDGE_EXCHANGE) {
+        for (int a = 0; a < (int)solution.size() - 1; a++)
+            for (int b = a + 1; b < (int)solution.size(); b++) {
+                Move m = move_intra_route_edge_exchange(a, b);
+                int d = get_move_delta(m, solution, dataset, dist);
+                if (d < 0) store_move_variants(m, solution, lm, dataset, d);
+                if (d < best_delta) { best_delta = d; best_move = m; }
+            }
+    }
+
+    if (best_delta < 0) return best_move;
+    best_move.valid = false;
+    return best_move;
+}
+
+Solution get_local_search_steepest_with_LM(
+    Solution solution,
+    const Dataset& dataset,
+    const CostMatrix& dist,
+    MoveKind intra_route_move_kind
+) {
+    std::vector<bool> used(dataset.size(), false);
+    for (auto& x : solution) used[x.id] = true;
+    std::vector<LMEntry> lm;
+    bool progressed = true;
+
+    while (progressed) {
+        progressed = false;
+        if (browse_LM_and_apply(lm, solution, used, dataset, dist)) {
+            progressed = true;
+            continue;
+        }
+
+        Move best = get_best_move_and_fill_LM(solution, dataset, dist, used, intra_route_move_kind, lm);
+        if (!best.valid) break;
+        if (act_on_move(best, solution, dataset, used)) progressed = true;
+    }
+    return solution;
+}
