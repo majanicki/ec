@@ -20,69 +20,70 @@ Current implementation is about improving the efficiency of the steepest local s
 
 # Pseudocode
 
-## Common Functionality
+## Steepest with LM
 
 ```
-FUNCTION get_move_delta(move, solution, dataset, dist):
+FUNCTION update_lm(solution, dataset, dist, used, affected_nodes, lm):
+    FOR i IN 0...affected_nodes.size() - 1:
+        FOR j IN 0...dataset.size() - 1:
+            IF used[i] THEN CONTINUE 
+            m := inter_route_move(affected_nodes[i].id, j) 
+            delta := get_move_delta(m, solution, dataset, dist) 
+
+            m_inverted := inter_route_move(j, affected_nodes[i].id)
+            delta_inverted := get_move_delta(m, solution, dataset, dist)
+            IF delta < 0:
+                new_entry.delta := delta
+                new_entry.removed_edges := get_removed_edges(m, solution)
+                new_entry.move := m
+                lm.push_back(m)
+
+    FOR i IN 0...affected_nodes.size() - 1:
+        FOR j IN 0...solution.size() - 1:
+            IF neighbors(affected_nodes[i], solution[j]) => CONTINUE
+
+            m := intra_route(affected_nodes[i].id, solution[j].id)
+            delta := get_move_delta(m, solution, dataset, dist)
+
+            IF delta < 0:
+                new_entry.delta := delta
+                new_entry.removed_edges := get_removed_edges(m, solution)
+                new_entry.move := m
+                lm.push_back(m)
+    sort(lm)
+```
+
+```
+FUNCTION check_valid(removed_edges, solution):
+    normal_valid := TRUE
+    FOREACH edge IN removed_edges:
+        IF edge NOT IN solution:
+            normal_valid := FALSE
+            BREAK
+    inverse_valid := TRUE
+    FOREACH edge IN removed_edges:
+        edge = inverse(edge)
+        IF edge NOT IN solution:
+            inverse_valid := FALSE
+            BREAK
+    IF normal_valid RETURN EDGES_SAME
+    IF inverse_valid RETURN EDGES_REVERSED
+    RETURN EDGES_MISSING
+```
+
+```
+FUNCTION apply_move(entry.move, solution, used):
     SWITCH move.kind:
         CASE INTER_ROUTE:
-            candidate := dataset[move.dataset_index]
-            prev_node := solution[move.solution_index - 1
-                        if move.solution_index > 0 else solution.size - 1]
-            swap_out_node := solution[move.solution_index]
-            next_node := solution[(move.solution_index + 1) % solution.size]
-            old_cost := dist(prev_node, swap_out_node) +
-                        dist(swap_out_node, next_node) + swap_out_node.cost
-            new_cost := dist(prev_node, candidate) +
-                        dist(candidate, next_node) + candidate.cost
-            RETURN new_cost - old_cost
-
-        CASE INTRA_ROUTE_NODE_EXCHANGE:
-            node_a := solution[move.swap_index_a]
-            node_b := solution[move.swap_index_b]
-            prev_a := solution[move.swap_index_a - 1
-                        if move.swap_index_a > 0 else solution.size - 1]
-            next_a := solution[(move.swap_index_a + 1) % solution.size]
-            prev_b := solution[move.swap_index_b - 1
-                        if move.swap_index_b > 0 else solution.size - 1]
-            next_b := solution[(move.swap_index_b + 1) % solution.size]
-            IF next_a.id == node_b.id OR next_b.id == node_a.id:
-                old_cost := dist(prev_a, node_a) +
-                            dist(node_a, node_b) + dist(node_b, next_b)
-                new_cost := dist(prev_a, node_b)
-                            + dist(node_b, node_a) + dist(node_a, next_b)
-            ELSE:
-                old_cost := dist(prev_a, node_a) + dist(node_a, next_a)
-                            + dist(prev_b, node_b) + dist(node_b, next_b)
-                new_cost := dist(prev_a, node_b) + dist(node_b, next_a)
-                            + dist(prev_b, node_a) + dist(node_a, next_b)
-            RETURN new_cost - old_cost
+            used[move.id_a] := false
+            used[move.id_b] := true
+            solution_index := get_node_pos(move.id_a, solution)
+            solution[solution_index] := dataset[move.id_b]
+            RETURN LIST[dataset[move.id_a]]
 
         CASE INTRA_ROUTE_EDGE_EXCHANGE:
-            a := move.swap_index_a
-            b := move.swap_index_b
-            c := (a + 1) % solution.size
-            d := (b + 1) % solution.size
-            node_a := solution[a]
-            node_b := solution[b]
-            node_c := solution[c]
-            node_d := solution[d]
-            old_cost := dist(node_a, node_c) + dist(node_b, node_d)
-            new_cost := dist(node_a, node_b) + dist(node_c, node_d)
-            RETURN new_cost - old_cost
-
-FUNCTION act_on_move(move, solution, dataset, used):
-    IF NOT move.valid: RETURN false
-    SWITCH move.kind:
-        CASE INTER_ROUTE:
-            used[solution[move.solution_index].id] := false
-            used[move.dataset_index] := true
-            solution[move.solution_index] := dataset[move.dataset_index]
-        CASE INTRA_ROUTE_NODE_EXCHANGE:
-            SWAP(solution[move.swap_index_a], solution[move.swap_index_b])
-        CASE INTRA_ROUTE_EDGE_EXCHANGE:
-            a := move.swap_index_a
-            b := move.swap_index_b
+            a := get_node_pos(move.id_a, solution)
+            b := get_node_pos(move.id_b, solution)
             IF a < b:
                 REVERSE(solution[a+1 to b])
             ELSE:
@@ -90,12 +91,38 @@ FUNCTION act_on_move(move, solution, dataset, used):
                 REVERSE(segment)
                 FOR i IN 0 to segment.size - 1:
                     solution[(a+1+i) % solution.size] := segment[i]
-    RETURN true
+            RETURN solution[b to a]
 ```
 
-## Steepest with LM
+```
+FUNCTION apply_lm(lm, solution, used):
+    FOREACH entry in lm;
+        status := check_valid(entry.removed_edges, solution)
+        SWITCH status:
+            CASE EDGES_SAME:
+                affected_nodes := apply_move(entry.move, solution, used)
+                RETURN affected_nodes
+            CASE EDGES_REVERSED:
+                CONTINUE
+            CASE EDGES_MISSING:
+                REMOVE entry FROM lm
+    RETURN empty
+```
 
 ```
+FUNCTION get_local_search_steepest_with_LM(solution, dataset, dist):
+    used := nodes IN solution
+    lm := EMPTY
+    progressed := TRUE
+    affected_nodes := nodes IN solution
+
+    WHILE progressed:
+        update_lm(solution, dataset, dist, used, affected_nodes, lm)
+        affected_nodes := browse_LM_and_apply(lm, solution, used, dataset):
+        IF affected_nodes is EMPTY:
+            break
+
+    RETURN solution
 ```
 
 # Result Comparison
