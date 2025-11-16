@@ -211,4 +211,6 @@ All solutions were checked with solution checker.
 
 # Conclusions
 
-- 
+- LM works as computational cache, which decreases the number of required computations
+- LM significantly improves speed of execution while preserving quality of the result
+- LM requires is quite complex to implement. Correctly invalidating cache is difficult
