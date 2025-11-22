@@ -4,21 +4,59 @@
 #include <chrono>
 #include <iomanip>
 
-int main() {
+void benchmark_solutions(const std::vector<Node> &dataset, CostMatrix dist, const std::string &suffix)
+{
+
+
+    {
+        std::vector<Solution> solutions;
+
+        for (size_t i = 0; i < 20; i++)
+        {
+            std::cout << "MSLS: " << i << std::endl;
+            Solution final_solution = get_multiple_start_local_search(dataset, dist);
+            solutions.push_back(final_solution);
+        }
+
+        std::cout << "MSLS";
+
+        std::string lore = "MSLS | ";
+
+        std::string filename = "msls" + suffix;
+        print_stats(solutions, dataset, dist, filename, lore);
+    }
+    {
+        std::vector<Solution> solutions;
+
+        for (size_t i = 0; i < 20; i++)
+        {
+            std::cout << "ILS: " << i << std::endl;
+            Solution final_solution = get_iterated_local_search(dataset, dist);
+            solutions.push_back(final_solution);
+        }
+
+        std::cout << "ILS";
+
+        std::string lore = "ILS | ";
+
+        std::string filename = "ils" + suffix;
+        print_stats(solutions, dataset, dist, filename, lore);
+    }
+}
+
+int main()
+{
+    SetTraceLogLevel(LOG_NONE);
+    InitWindow(1, 1, "This is a title");
+    SetWindowState(FLAG_WINDOW_HIDDEN);
+
     char *whole_file_a = read_file("./TSPA.csv");
     Dataset dataset_a = parse_dataset(whole_file_a);
     CostMatrix dist_a = compute_distance_matrix(dataset_a);
+    benchmark_solutions(dataset_a, dist_a, "_a");
 
-    Solution sol = get_iterated_local_search(dataset_a, dist_a);
-    int cost = compute_total_cost(sol, dist_a);
-    std::string lore = std::to_string(cost);
-    InitWindow(1000, 500, "This is a title");
-
-    while(!WindowShouldClose()) {
-        BeginDrawing();
-        ClearBackground(WHITE);
-        DrawText(lore.c_str(), 10, 10, 70, BLACK);
-        visualize_solution(sol, dataset_a, 1000, 500);
-        EndDrawing();
-    }
+    char *whole_file_b = read_file("./TSPB.csv");
+    Dataset dataset_b = parse_dataset(whole_file_b);
+    CostMatrix dist_b = compute_distance_matrix(dataset_b);
+    benchmark_solutions(dataset_b, dist_b, "_b");
 }
