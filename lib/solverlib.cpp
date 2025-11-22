@@ -1298,3 +1298,64 @@ Solution get_local_search_steepest_with_LM(
     }
     return solution;
 }
+
+Solution get_multiple_start_local_search(Dataset dataset, CostMatrix dist) {
+    Solution best;
+    int best_score = INT_MAX;
+    for (int i = 0; i < 200; i++) {
+        Solution seed = get_random_solution(dataset);
+        Solution candidate = get_local_search_steepest(seed, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        int score = compute_total_cost(candidate, dist);
+        if(best_score > score) {
+            best_score = score;
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+
+Solution perturbate(Solution solution, const Dataset &dataset) {
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) used[solution[i].id] = true;
+
+    for(int i = 0; i < 10; i++) {
+        std::uniform_int_distribution<int> rng_dist(1, 10);
+        int move_kind = rng_dist(rng);
+        std::uniform_int_distribution<int> rng_sol(0, solution.size() - 1);
+        std::uniform_int_distribution<int> rng_dataset(0, dataset.size() - 1);
+        if(move_kind <= 5) {
+            int sol_index = rng_sol(rng);
+            int dataset_index = rng_dataset(rng);
+            for(; used[dataset_index]; dataset_index = (dataset_index + 1) % dataset.size());
+            Move move = move_inter_route(sol_index, dataset_index);
+            act_on_move(move, solution, dataset, used);
+        } else {
+            int sol_index1 = rng_sol(rng);
+            int sol_index2 = rng_sol(rng);
+            if(sol_index1 == sol_index2) {
+                sol_index2 = (sol_index2 + 2) % solution.size();
+            }
+            Move move = move_intra_route_edge_exchange(sol_index1, sol_index2);
+            act_on_move(move, solution, dataset, used);
+        }
+    }
+    return solution;
+}
+
+Solution get_iterated_local_search(Dataset dataset, CostMatrix dist) {
+    Solution seed = get_random_solution(dataset);
+    Solution best = get_local_search_steepest(seed, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+    int best_score = compute_total_cost(best, dist);
+
+    for (int i = 0; i < 200; i++) {
+        Solution pert = perturbate(best, dataset);
+        Solution candidate = get_local_search_steepest(pert, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        int score = compute_total_cost(candidate, dist);
+        if(best_score > score) {
+            best_score = score;
+            best = candidate;
+        }
+    }
+    return best;
+}
