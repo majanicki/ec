@@ -12,6 +12,7 @@
 #include <random>
 #include <sstream>
 #include <utility>
+#include <chrono>
 
 #define panicf(__format, ...) \
     do { \
@@ -1343,19 +1344,39 @@ Solution perturbate(Solution solution, const Dataset &dataset) {
     return solution;
 }
 
-Solution get_iterated_local_search(Dataset dataset, CostMatrix dist) {
+struct ILS_Result {
+    Solution solution;
+    int ls_runs;
+};
+
+
+ILS_Result get_iterated_local_search(const Dataset &dataset, const CostMatrix &dist)
+{
+    int ls_runs = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
     Solution seed = get_random_solution(dataset);
     Solution best = get_local_search_steepest(seed, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
     int best_score = compute_total_cost(best, dist);
+    ls_runs++;
 
-    for (int i = 0; i < 200; i++) {
+    while (true) {
+        auto current_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = current_time - start_time;
+        if (elapsed.count() >= 2.943)
+            break;
+
+        ls_runs++;
         Solution pert = perturbate(best, dataset);
         Solution candidate = get_local_search_steepest(pert, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
         int score = compute_total_cost(candidate, dist);
-        if(best_score > score) {
+        if(score < best_score)
+        {
             best_score = score;
             best = candidate;
         }
     }
-    return best;
+
+    return { best, ls_runs };
 }
+
