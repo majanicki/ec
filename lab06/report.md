@@ -113,4 +113,5 @@ Current implementation is about implementing Multiple start local search (MSLS) 
 
 # Conclusions
 
-
+- MSLS suffers from reliance on random initialization, leading to many wasted searches that converge to shallow local minima. Fails to exploit high-quality solutions.
+- ILS uses the available time more efficiently by focusing search effort around promising areas of the solution space, rather than repeatedly starting over.
