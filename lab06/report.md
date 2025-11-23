@@ -52,6 +52,10 @@ Current implementation is about implementing Multiple start local search (MSLS) 
 | Multiple start local search (Steepest, Random init)| 71,330.35 (70,705, 71,787)  | 69,767.65 (69,355, 70,121)  |
 | Iterated local search                              | 69,182.00 (69,095, 69,700)  | 43,546.80 (43,446, 43,963)  |
 
+| Algorithm                                          | TSPA LS runs (Mean (Min, Max)) | TSPB LS runs (Mean (Min, Max)) |
+| -------------------------------------------------- | --------------------------- | --------------------------- |
+| Iterated local search                              | 3292.75 (2323, 4323)        | 3391.95 (2052, 4654)        |
+
 
 \newpage
 
