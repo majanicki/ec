@@ -20,6 +20,62 @@ Current implementation is about implementing Multiple start local search (MSLS) 
 
 # Pseudocode
 
+
+```
+FUNCTION get_multiple_start_local_search(dataset, dist):
+    best := EMPTY
+    best_score := INT_MAX
+    FOR i IN 0..200:
+        seed := get_random_solution()
+        candidate := get_local_search_steepest(seed, dataset, dist)
+        score := compute_total_cost(candidate, dist)
+        IF score < best_score:
+            score := best_score
+            best := candidate
+    RETURN best
+```
+
+```
+FUNCTION perturbate(solution, dataset):
+    used := LIST(SIZE(dataset), FALSE)
+    FOR i IN 0..SIZE(solution):
+        used[solution[i].id] := TRUE
+    FOR i IN 10:
+        move_kind := RANDOM(0, 1)
+        SWITCH move_kind:
+            CASE 0:
+                solution_index := RANDOM(0, SIZE(solution) - 1)
+                dataset_index := RANDOM(0, SIZE(dataset) - 1)
+                WHILE used[dataset_index]:
+                    dataset_index := (dataset_index + 1) % SIZE(dataset)
+                move := move_inter_route(solution_index, dataset_index)
+                act_on_move(move, solution, dataset, used)
+            CASE 1:
+                solution_index_1 := RANDOM(0, SIZE(solution) - 1)
+                solution_index_2 := RANDOM(0, SIZE(solution) - 1)
+                IF solution_index_1 = solution_index_2:
+                    solution_index_2 = (solution_index_2 + 2) % SIZE(solution)
+                move := move_intra_route_edge_exchange(solution_index_1, solution_index_2)
+                act_on_move(move, solution, dataset, used)
+    RETURN solution
+```
+
+```
+FUNCTION get_iterated_local_search(dataset, dist):
+    seed := get_random_solution(dataset)
+    best := get_local_search_steepest(seed, dataset, dist)
+    best_score := compute_total_cost(best)
+
+    WHILE execution_time() < 2.943:
+        pert := perturbate(best, dataset)
+        candidate := get_local_search_steepest(pert, dataset, dist)
+        score := compute_total_cost(candidate, dist)
+        IF score < best_score:
+            best_score := score
+            best := candidate
+    RETURN best
+```
+
 # Result Comparison
 
 | Algorithm                                          | TSPA Cost (Mean (Min, Max)) | TSPB Cost (Mean (Min, Max)) |

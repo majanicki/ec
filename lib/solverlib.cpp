@@ -1354,7 +1354,6 @@ ILS_Result get_iterated_local_search(const Dataset &dataset, const CostMatrix &d
 {
     int ls_runs = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
-    
     Solution seed = get_random_solution(dataset);
     Solution best = get_local_search_steepest(seed, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
     int best_score = compute_total_cost(best, dist);
