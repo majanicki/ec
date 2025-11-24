@@ -105,7 +105,7 @@ FUNCTION get_iterated_local_search(dataset, dist):
 | Candidate Local Search Steepest (k=20)             | 75,295.08 (72,316, 79,297)  | 48,457.54 (45,886, 51,560)  |
 | Steepest with LM + Intra Nodes + Random Start      | 87,917.41 (80,030, 99,187)  | 62,530.10 (55,192, 69,603)  |
 | Steepest with LM + Intra Edges + Random Start      | 73,486.72 (71,347, 76,128)  | 48,105.17 (45,528, 51,218)  |
-| Multiple start local search (Steepest, Random init)| 71,330.35 (70,705, 71,787)  | 69,767.65 (69,355, 70,121)  |
+| Multiple start local search (Steepest, Random init)| 71,330.35 (70,705, 71,787)  | 45,701.80 (45,701, 46,166)  |
 | Iterated local search                              | 69,182.00 (69,095, 69,700)  | 43,546.80 (43,446, 43,963)  |
 
 | Algorithm                                          | TSPA LS runs (Mean (Min, Max)) | TSPB LS runs (Mean (Min, Max)) |
