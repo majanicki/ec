@@ -1476,7 +1476,6 @@ SolutionAndIteration get_large_neighborhood_search_base(const Dataset& dataset, 
         }
         ls_runs++;
     }
-    std::cout << best.size() << std::endl;
     return {best, ls_runs};
 }
 
