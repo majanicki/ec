@@ -1,7 +1,7 @@
 ifeq ($(OS),Windows_NT)
-    BUILD=build lab06
+    BUILD=build lab07
 else
-    BUILD=./build.sh lab06
+    BUILD=./build.sh lab07
 endif
 all:
 	${BUILD}

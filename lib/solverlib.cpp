@@ -1344,13 +1344,13 @@ Solution perturbate(Solution solution, const Dataset &dataset) {
     return solution;
 }
 
-struct ILS_Result {
+struct SolutionAndIteration {
     Solution solution;
     int ls_runs;
 };
 
 
-ILS_Result get_iterated_local_search(const Dataset &dataset, const CostMatrix &dist)
+SolutionAndIteration get_iterated_local_search(const Dataset &dataset, const CostMatrix &dist)
 {
     int ls_runs = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -1379,3 +1379,111 @@ ILS_Result get_iterated_local_search(const Dataset &dataset, const CostMatrix &d
     return { best, ls_runs };
 }
 
+Solution destroy(Solution solution) {
+    int to_remove = solution.size() * 0.30f;
+    for (int n_removed = 0; n_removed < to_remove; ) {
+        std::uniform_int_distribution<int> rng_sol(0, solution.size() - 1);
+        std::uniform_int_distribution<int> rng_path_length(5, 8);
+        int path_start = rng_sol(rng);
+        int path_length = rng_path_length(rng);
+        int n_to_remove_wraparound = (path_start + path_length) - solution.size();
+        int n_to_remove_normal = path_length;
+        if (n_to_remove_wraparound > 0) {
+             path_length = path_length - n_to_remove_wraparound;
+        }
+        for(int i = 0; i < n_to_remove_normal; i++) {
+            solution.erase(solution.begin() + path_start);
+        }
+        for(int i = 0; i < n_to_remove_wraparound; i++) {
+            solution.erase(solution.begin() + 0);
+        }
+        n_removed += path_length;
+    }
+    return solution;
+}
+
+Solution rebuild(Solution solution, const Dataset &dataset, CostMatrix dist) {
+    int target_size = (dataset.size() + 1) / 2;
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) {
+      used[solution[i].id] = true;
+    }
+    float weight_cost = 0.5f;
+    float weight_regret = 1.0f - weight_cost;
+    while ((int)solution.size() < target_size) {
+        int final_insert_location = -1;
+        int best_weighted_sum = INT_MIN;
+        int insert_id = -1;
+        for (size_t j = 0; j < dataset.size(); j++) {
+            if (used[j]) continue;
+            int best_place_cost = INT_MAX;
+            int second_best_place_cost = INT_MAX;
+            int insert_location;
+            for (int i = 0; i < (int)solution.size(); i++) {
+                Node current_node = solution[i];
+                Node next_node = solution[(i+1)%solution.size()];
+                int curr_cost = dist.get(current_node, next_node);
+                int new_cost = dist.get(current_node, dataset[j]) + dist.get(dataset[j], next_node) + dataset[j].cost;
+                int cost = new_cost - curr_cost;
+                if(best_place_cost > cost) {
+                    second_best_place_cost = best_place_cost;
+                    best_place_cost = cost;
+                    insert_location = i;
+                } else if (second_best_place_cost > cost) {
+                    second_best_place_cost = cost;
+                }
+            }
+            int regret = second_best_place_cost - best_place_cost;
+            assert(regret >= 0);
+            int weighted_sum = -(float)best_place_cost * weight_cost + (float)regret * weight_regret;
+            if(best_weighted_sum < weighted_sum) {
+                best_weighted_sum = weighted_sum;
+                final_insert_location = insert_location;
+                insert_id = j;
+            }
+        }
+
+        assert(insert_id != -1);
+        assert(final_insert_location != -1);
+        solution.insert(solution.begin() + final_insert_location + 1, dataset[insert_id]);
+        used[insert_id] = true;
+    }
+
+    return solution;
+}
+
+SolutionAndIteration get_large_neighborhood_search_base(const Dataset& dataset, CostMatrix dist, bool do_local_search) {
+    int ls_runs = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    Solution best = get_random_solution(dataset);
+    int best_score = compute_total_cost(best, dist);
+    ls_runs++;
+
+    while (true) {
+        auto current_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = current_time - start_time;
+        if (elapsed.count() >= 2.943)
+            break;
+        Solution y = destroy(best);
+        if(do_local_search) {
+            y = get_local_search_steepest(y, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        }
+        y = rebuild(y, dataset, dist);
+        int cost = compute_total_cost(y, dist);
+        if(cost < best_score) {
+            best_score = cost;
+            best = y;
+        }
+        ls_runs++;
+    }
+    std::cout << best.size() << std::endl;
+    return {best, ls_runs};
+}
+
+SolutionAndIteration get_large_neighborhood_search(const Dataset& dataset, CostMatrix dist) {
+    return get_large_neighborhood_search_base(dataset, dist, false);
+}
+
+SolutionAndIteration get_large_neighborhood_search_with_local_search(const Dataset& dataset, CostMatrix dist) {
+    return get_large_neighborhood_search_base(dataset, dist, true);
+}
