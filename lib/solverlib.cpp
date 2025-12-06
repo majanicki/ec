@@ -13,6 +13,7 @@
 #include <sstream>
 #include <utility>
 #include <chrono>
+#include <unordered_set>
 
 #define panicf(__format, ...) \
     do { \
@@ -1485,4 +1486,84 @@ SolutionAndIteration get_large_neighborhood_search(const Dataset& dataset, CostM
 
 SolutionAndIteration get_large_neighborhood_search_with_local_search(const Dataset& dataset, CostMatrix dist) {
     return get_large_neighborhood_search_base(dataset, dist, true);
+}
+
+int calculate_similarity_common_nodes(const Solution& a, const Solution&b) {
+    int common_nodes = 0;
+    std::unordered_set<int> nodes_in_a;
+    
+    for (size_t i = 0; i < a.size(); i++) nodes_in_a.insert(a[i].id);
+
+    for (size_t i = 0; i < b.size(); i++) {
+        if (nodes_in_a.find(b[i].id) != nodes_in_a.end()) {
+            common_nodes++;
+        }
+    }
+    return common_nodes;
+}
+
+int calculate_similarity_common_edges(const Solution& a, const Solution& b) {
+    int common_edges = 0;
+    std::unordered_set<std::string> edges_in_a;
+    
+    for (size_t i = 0; i < a.size(); i++) {
+        int u = a[i].id;
+        int v = a[(i + 1) % a.size()].id;
+        if (u > v) std::swap(u, v);
+        edges_in_a.insert(std::to_string(u) + "-" + std::to_string(v));
+    }
+
+    for (size_t i = 0; i < b.size(); i++) {
+        int u = b[i].id;
+        int v = b[(i + 1) % b.size()].id;
+        if (u > v) std::swap(u, v);
+        if (edges_in_a.find(std::to_string(u) + "-" + std::to_string(v)) != edges_in_a.end()) {
+            common_edges++;
+        }
+    }
+    return common_edges;
+}
+
+double calculate_correlation(const std::vector<double>& x, const std::vector<double>& y) {
+    size_t n = x.size();
+    if (n == 0 || y.size() != n) return 0.0;
+    double sx = 0.0, sy = 0.0;
+    for (size_t i = 0; i < n; i++) {
+        sx += x[i];
+        sy += y[i];
+    }
+    double mx = sx / n;
+    double my = sy / n;
+    double numerator = 0.0;
+    double vx = 0.0;
+    double vy = 0.0;
+    for (size_t i = 0; i < n; i++) {
+        double dx = x[i] - mx;
+        double dy = y[i] - my;
+        numerator += dx * dy;
+        vx += dx * dx;
+        vy += dy * dy;
+    }
+    if (vx == 0.0 || vy == 0.0) return 0.0;
+    return numerator / std::sqrt(vx * vy);
+}
+
+void write_csv_xy(const std::string& filename, const std::vector<double>& x, const std::vector<double>& y) {
+    std::ofstream f(filename);
+    if (!f) panicf("Failed to open CSV file");
+    for (size_t i = 0; i < x.size(); i++) {
+        f << x[i] << "," << y[i] << "\n";
+    }
+    f.close();
+}
+
+std::vector<Solution> generate_local_optima(const Dataset& dataset, CostMatrix dist, int n_optima) {
+    std::vector<Solution> locals;
+    locals.reserve(n_optima);
+    for (int i = 0; i < n_optima; i++) {
+        Solution seed = get_random_solution(dataset);
+        Solution local = get_local_search_greedy(seed, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        locals.push_back(local);
+    }
+    return locals;
 }
