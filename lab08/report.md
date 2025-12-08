@@ -111,3 +111,4 @@ In this laboratory the goal was to investigate the global structure of the searc
 # Conclusions
 
 - There is a consistent trend where lower-cost solutions have higher similarities. This suggests that solutions closer to optimal are getting more alike each other.
+- Edge-based correlations tend to be weaker than node-based correlations, but both show strong negative trends.
