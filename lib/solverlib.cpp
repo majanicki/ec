@@ -1646,7 +1646,6 @@ Solution evolution_operator1(Solution parent1, Solution parent2, const Dataset& 
         int max_choice = random_budget > 0 ? 2 : 1;
         std::uniform_int_distribution<int> choice_dist(0, max_choice);
         int choice = subpaths.size() > 0 ? choice_dist(rng) : 2;
-
         // insert random subpath
         if (choice < 2) {
             std::uniform_int_distribution<int> subpath_dist(0, subpaths.size() - 1);
@@ -1691,10 +1690,12 @@ enum EvolutionOperator{
     OPERATOR_1,
     OPERATOR_2_LS,
     OPERATOR_2_NO_LS,
+    N_OPERATORS,
 };
 
-Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist, EvolutionOperator evo_operator) {
+SolutionAndIteration get_hybrid_evolution(const Dataset& dataset, CostMatrix dist, EvolutionOperator evo_operator) {
     Population population = get_initial_population(20, dataset, dist);
+    int ls_runs = 20;
     auto start_time = std::chrono::high_resolution_clock::now();
 
     while (true) {
@@ -1713,9 +1714,11 @@ Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist, Evolution
         if(evo_operator == OPERATOR_1) {
             offspring = evolution_operator1(population[index_parent1], population[index_parent2], dataset);
             offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+            ls_runs++;
         } else if(evo_operator == OPERATOR_2_LS) {
             offspring = evolution_operator2(population[index_parent1], population[index_parent2], dataset, dist);
             offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+            ls_runs++;
         } else if(evo_operator == OPERATOR_2_NO_LS) {
             offspring = evolution_operator2(population[index_parent1], population[index_parent2], dataset, dist);
         }
@@ -1747,6 +1750,5 @@ loop_skip:
             best_cost = cost;
         }
     }
-    assert(solution_valid(sol, dataset));
-    return sol;
+    return {sol, ls_runs};
 }
