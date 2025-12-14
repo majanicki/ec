@@ -1570,10 +1570,10 @@ std::vector<Solution> generate_local_optima(const Dataset& dataset, CostMatrix d
 
 typedef std::vector<Solution> Population;
 
-Population get_initial_population(int target_size, const Dataset& dataset) {
+Population get_initial_population(int target_size, const Dataset& dataset, CostMatrix dist) {
     Population init_population;
     for(int i = 0; i < target_size; i++) {
-        init_population.push_back(get_random_solution(dataset));
+        init_population.push_back(get_local_search_steepest(get_random_solution(dataset), dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
     }
     return init_population;
 }
@@ -1667,6 +1667,7 @@ Solution evolution_operator1(Solution parent1, Solution parent2, const Dataset& 
             int node = node_dist(rng);
             while(used[node]) node = (node + 1) % dataset.size();
             offspring.push_back(dataset[node]);
+            used[node] = true;
             random_budget--;
         }
     }
@@ -1674,9 +1675,14 @@ Solution evolution_operator1(Solution parent1, Solution parent2, const Dataset& 
 }
 
 Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist) {
-    Population population = get_initial_population(20, dataset);
-    int i = 0;
-    while(i < 200) {
+    Population population = get_initial_population(20, dataset, dist);
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    while (true) {
+        auto current_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = current_time - start_time;
+        if (elapsed.count() >= 2.943)
+            break;
         assert(population.size() == 20);
         std::uniform_int_distribution<int> parent_dist(0, population.size() - 1);
         int index_parent1 = parent_dist(rng);
@@ -1703,7 +1709,6 @@ Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist) {
             population[worst_index] = offspring;
         }
 loop_skip:
-        i++;
         continue;
     }
     int best_cost = INT_MAX;
@@ -1715,5 +1720,6 @@ loop_skip:
             best_cost = cost;
         }
     }
+    assert(solution_valid(sol, dataset));
     return sol;
 }

@@ -4,7 +4,7 @@ set -e
 
 RAYLIB="-I./raylib/include/ ./raylib/lib_linux/libraylib.a -lm"
 SOLVERLIB="-I./lib/"
-CXXFLAGS="-g -Wall -Wextra"
+CXXFLAGS="-O3 -Wall -Wextra"
 
 
 SRC="./$1/main.cpp"
