@@ -1567,3 +1567,153 @@ std::vector<Solution> generate_local_optima(const Dataset& dataset, CostMatrix d
     }
     return locals;
 }
+
+typedef std::vector<Solution> Population;
+
+Population get_initial_population(int target_size, const Dataset& dataset) {
+    Population init_population;
+    for(int i = 0; i < target_size; i++) {
+        init_population.push_back(get_random_solution(dataset));
+    }
+    return init_population;
+}
+
+typedef std::vector<Node> Path;
+
+std::vector<Path> find_common_subpaths(Solution parent1, Solution parent2, int max_id) {
+    std::vector<int> positions(max_id, -1);
+    for(size_t i = 0; i < parent1.size(); i++) {
+        Node n = parent1[i];
+        positions[n.id] = i;
+    }
+    int parent_size = parent1.size();
+    for(int i = 0; i < parent_size; i++) {
+        parent1.push_back(parent1[i]);
+        parent2.push_back(parent2[i]);
+    }
+    std::vector<Path> subpaths;
+    for(int p2_pos = 0; p2_pos < parent_size; p2_pos++) {
+        Node n = parent2[p2_pos];
+        int p1_pos = positions[n.id];
+        if( p1_pos == -1) continue;
+        // check if path is left extandable
+        {
+            int p1_left_node_id = p1_pos - 1;
+            if(p1_left_node_id < 0) p1_left_node_id = parent_size - 1;
+            Node p1_left_node = parent1[p1_left_node_id];
+
+            int p2_left_node_id = p2_pos - 1;
+            if(p2_left_node_id < 0) p2_left_node_id = parent_size - 1;
+            Node p2_left_node = parent2[p2_left_node_id];
+
+            if(p2_left_node.id == p1_left_node.id){
+                continue;
+            }
+        }
+        int i = p1_pos;
+        int j = p2_pos;
+        Path current_path;
+        while(i < p1_pos + parent_size && j < p2_pos + parent_size && parent1[i].id == parent2[j].id) {
+            current_path.push_back(parent1[i]);
+            i++;
+            j++;
+        }
+        if(current_path.size() > 0) {
+            p2_pos = j - 1;
+            subpaths.push_back(current_path);
+        }
+    }
+    return subpaths;
+}
+
+Solution evolution_operator1(Solution parent1, Solution parent2, const Dataset& dataset) {
+    std::vector<Path> subpaths = find_common_subpaths(parent1, parent2, dataset.size());
+    int subpaths_length = 0;
+    std::vector<bool> used(dataset.size(), false);
+
+    for(size_t i = 0; i < subpaths.size(); i++) {
+        Path &p = subpaths[i];
+        for(size_t j = 0; j < p.size(); j++) {
+            assert(!used[p[j].id]);
+            used[p[j].id] = true;
+        }
+        subpaths_length += p.size();
+    }
+    int random_budget = parent1.size() - subpaths_length;
+    Solution offspring;
+    while(offspring.size() < parent1.size()) {
+        int max_choice = random_budget > 0 ? 2 : 1;
+        std::uniform_int_distribution<int> choice_dist(0, max_choice);
+        int choice = subpaths.size() > 0 ? choice_dist(rng) : 2;
+
+        // insert random subpath
+        if (choice < 2) {
+            std::uniform_int_distribution<int> subpath_dist(0, subpaths.size() - 1);
+            int subpath = subpath_dist(rng);
+            Path &p = subpaths[subpath];
+            if(choice == 0) {
+                for(size_t i = 0; i < p.size(); i++) {
+                    offspring.push_back(p[i]);
+                }
+
+            } else if(choice == 1) { // insert random inversed
+                for(int i = p.size()-1; i >= 0; i--) {
+                    offspring.push_back(p[i]);
+                }
+            }
+            subpaths.erase(subpaths.begin() + subpath);
+        } else if (choice == 2){ // insert random node
+            std::uniform_int_distribution<int> node_dist(0, dataset.size()-1);
+            int node = node_dist(rng);
+            while(used[node]) node = (node + 1) % dataset.size();
+            offspring.push_back(dataset[node]);
+            random_budget--;
+        }
+    }
+    return offspring;
+}
+
+Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist) {
+    Population population = get_initial_population(20, dataset);
+    int i = 0;
+    while(i < 200) {
+        assert(population.size() == 20);
+        std::uniform_int_distribution<int> parent_dist(0, population.size() - 1);
+        int index_parent1 = parent_dist(rng);
+        int index_parent2 = parent_dist(rng);
+        if (index_parent1 == index_parent2) {
+            index_parent2 =  (index_parent2 + 1) % population.size();
+        }
+        Solution offspring = evolution_operator1(population[index_parent1], population[index_parent2], dataset);
+        offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        int offspring_cost = compute_total_cost(offspring, dist);
+        int worst_cost = 0;
+        int worst_index = -1;
+        for(size_t i = 0; i < population.size(); i++) {
+            int cost = compute_total_cost(population[i], dist);
+            if(cost == offspring_cost) {
+                goto loop_skip;
+            }
+            if(cost > worst_cost) {
+                worst_cost = cost;
+                worst_index = i;
+            }
+        }
+        if(worst_cost > offspring_cost) {
+            population[worst_index] = offspring;
+        }
+loop_skip:
+        i++;
+        continue;
+    }
+    int best_cost = INT_MAX;
+    Solution sol;
+    for(size_t i = 0; i <population.size(); i++) {
+        int cost = compute_total_cost(population[i], dist);
+        if(cost < best_cost) {
+            sol = population[i];
+            best_cost = cost;
+        }
+    }
+    return sol;
+}
