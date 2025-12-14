@@ -1574,6 +1574,7 @@ Population get_initial_population(int target_size, const Dataset& dataset, CostM
     Population init_population;
     for(int i = 0; i < target_size; i++) {
         init_population.push_back(get_local_search_steepest(get_random_solution(dataset), dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE));
+        // init_population.push_back(get_random_solution(dataset));
     }
     return init_population;
 }
@@ -1674,7 +1675,25 @@ Solution evolution_operator1(Solution parent1, Solution parent2, const Dataset& 
     return offspring;
 }
 
-Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist) {
+Solution evolution_operator2(Solution parent1, Solution parent2, const Dataset& dataset, CostMatrix dist) {
+    std::vector<Path> subpaths = find_common_subpaths(parent1, parent2, dataset.size());
+    Solution offspring;
+    for(size_t i = 0; i < subpaths.size(); i++) {
+        Path &p = subpaths[i];
+        for(size_t j = 0; j < p.size(); j++) {
+            offspring.push_back(p[j]);
+        }
+    }
+    offspring = rebuild(offspring, dataset, dist);
+    return offspring;
+}
+enum EvolutionOperator{
+    OPERATOR_1,
+    OPERATOR_2_LS,
+    OPERATOR_2_NO_LS,
+};
+
+Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist, EvolutionOperator evo_operator) {
     Population population = get_initial_population(20, dataset, dist);
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -1690,8 +1709,16 @@ Solution get_hybrid_evolution(const Dataset& dataset, CostMatrix dist) {
         if (index_parent1 == index_parent2) {
             index_parent2 =  (index_parent2 + 1) % population.size();
         }
-        Solution offspring = evolution_operator1(population[index_parent1], population[index_parent2], dataset);
-        offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        Solution offspring;
+        if(evo_operator == OPERATOR_1) {
+            offspring = evolution_operator1(population[index_parent1], population[index_parent2], dataset);
+            offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        } else if(evo_operator == OPERATOR_2_LS) {
+            offspring = evolution_operator2(population[index_parent1], population[index_parent2], dataset, dist);
+            offspring = get_local_search_steepest(offspring, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        } else if(evo_operator == OPERATOR_2_NO_LS) {
+            offspring = evolution_operator2(population[index_parent1], population[index_parent2], dataset, dist);
+        }
         int offspring_cost = compute_total_cost(offspring, dist);
         int worst_cost = 0;
         int worst_index = -1;

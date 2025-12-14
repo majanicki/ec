@@ -7,7 +7,7 @@ int main() {
     Dataset dataset_a = parse_dataset(whole_file_a);
     CostMatrix dist_a = compute_distance_matrix(dataset_a);
 
-    Solution sol = get_hybrid_evolution(dataset_a, dist_a);
+    Solution sol = get_hybrid_evolution(dataset_a, dist_a, OPERATOR_2_LS);
     save_solution_to_txt(sol, "test_sol.txt");
     assert(solution_valid(sol, dataset_a) && sol.size() == 100);
 
