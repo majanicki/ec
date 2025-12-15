@@ -31,7 +31,86 @@ FUNCTION get_initial_population(size, dataset, dist)
                                                  INTRA_ROUTE_EDGE_EXCHANGE)
         ADD ls_solution TO population
     RETURN population
+```
 
+```
+FUNCTION find_common_subpaths(parent1, parent2)
+    positions := EMPTY map
+    FOR i, node IN ENUMERATE(parent1):
+        positions[node] := i
+    parent_size := parent_size.size
+    parent1 := parent1 + parent1
+    parent2 := parent2 + parent2
+    all_subpaths := EMPTY LIST of subpaths
+    FOR p2_pos IN 0..parent_size:
+        n := parent2[p2_pos]
+        IF n NOT IN positions:
+            CONTINUE
+        IF node left to N is part of the same common path as n:
+            CONTINUE
+
+        p1_pos := positions[n]
+        i := p1_pos
+        j := p2_pos
+        current_path := EMPTY path
+        WHILE i < p1_pos + parent_size AND
+              j < p2_pos + parent_size AND
+              parent1[i] = parent2[j]:
+            APPEND(current_path, parent1[i])
+        IF current_path.size > 0:
+            APPEND(all_subpaths, current_path)
+    RETURN all_subpaths
+
+```
+
+```
+FUNCTION evolution_operator1(parent1, parent2, dataset)
+    subpaths := find_common_subpaths(parent1, parent2)
+    subpaths_length := 0
+    used[dataset.size] := FALSE
+    FOR path IN subpaths:
+        FOR node IN path:
+            used[node] := TRUE
+        subpaths_length := subpaths_length + path.size
+
+    random_budget := parent1.size - subpaths_length
+    offspring := EMPTY solution
+    WHILE offspring.size < parent1.size:
+        available_choices := EMPTY SET
+        IF subpaths.size > 0:
+            ADD(available_choices, PATH)
+            ADD(available_choices, PATH_REVERSED)
+        IF random_budget > 0:
+            ADD(available_choices, RANDOM_NODE)
+        choice := CHOOSE_RANDOM(available_choices)
+        SWITCH choice:
+            CASE PATH:
+                p := CHOOSE_RANDOM(subpaths)
+                APPEND(offspring, p)
+                REMOVE p FROM subpaths
+            CASE PATH_REVERSED:
+                p := CHOOSE_RANDOM(subpaths)
+                APPEND(offspring, REVERSE(p))
+                REMOVE p FROM subpaths
+            CASE RANDOM_NODE:
+                n := random not used node from dataset
+                APPEND(offspring, n)
+                random_budget := random_budget - 1
+                used[n] := TRUE
+    RETURN offspring
+```
+
+```
+FUNCTION evolution_operator2(parent1, parent2, dataset):
+    subpaths := find_common_subpaths(parent1, parent2)
+    offspring := EMPTY solution
+    FOR path IN subpaths:
+        APPEND(offspring, path)
+    offspring := rebuild(offspring)
+    RETURN offspring
+```
+
+```
 FUNCTION get_hybrid_evolution(dataset, dist, evo_operator)
     population := get_initial_population(20, dataset, dist)
     
@@ -68,12 +147,8 @@ FUNCTION get_hybrid_evolution(dataset, dist, evo_operator)
 
         IF COST(worst) > offspring_cost:
             REPLACE worst WITH offspring IN population
-    
+
     RETURN best solution IN population
-
-
-
-
 ```
 
 # Result Comparison
@@ -187,5 +262,6 @@ FUNCTION get_hybrid_evolution(dataset, dist, evo_operator)
 
 - The hybrid evolutionary algorithm achieves solution quality comparable to LNS and ILS on both problem instances.
 - Operator 1 produces the most competitive results, slightly outperforming the second operator variants. Besides that, it requires significantly fewer local search executions.
+- Offspring in Operator 1 often differs signifcantly from parents, causing the algorithm to explore larger part of the solution space and extending LS running time.
 - Removing local search from the second operator degredes solution quality.
 
