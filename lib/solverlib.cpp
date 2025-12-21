@@ -1752,3 +1752,141 @@ loop_skip:
     }
     return {sol, ls_runs};
 }
+
+
+int pick_long_edge_index(const Solution &solution, CostMatrix dist) {
+    int longest_edge_index = 0;
+    int longest_edge_cost = -1;
+
+    for (size_t i = 0; i < solution.size(); i++) {
+        int j = (i + 1) % solution.size();
+        int c = dist.get(solution[i], solution[j]);
+        if (c > longest_edge_cost) { longest_edge_cost = c; longest_edge_index = i; }
+    }
+    return longest_edge_index;
+}
+
+Solution perturb_light(Solution solution, const Dataset &dataset, const CostMatrix &dist) {
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) used[solution[i].id] = true;
+
+    std::uniform_int_distribution<int> sol_dist(0, solution.size() - 1);
+
+    for (int i = 0; i < 5; i++) {
+        int a = pick_long_edge_index(solution, dist);
+        int b = sol_dist(rng);
+        if (a != b) {
+            Move m = move_intra_route_edge_exchange(a, b);
+            act_on_move(m, solution, dataset, used);
+        }
+    }
+
+    return solution;
+}
+
+int pick_bad_position(const Solution &sol, CostMatrix dist) {
+    int n = sol.size();
+    int highest_i = 0;
+    int highest_contribution = -1;
+
+    for (int i = 0; i < n; i++) {
+        int prev = (i == 0) ? n - 1 : i - 1;
+        int next = (i + 1) % n;
+        
+        // 'cost of keeping' the node i in the current solution
+        int contrib = 
+            sol[i].cost +
+            dist.get(sol[prev], sol[i]) +
+            dist.get(sol[i], sol[next]);
+
+        if (contrib > highest_contribution) {
+            highest_contribution = contrib;
+            highest_i = i;
+        }
+    }
+    return highest_i;
+}
+
+
+Solution perturb_heavy(Solution solution, const Dataset &dataset,const CostMatrix &dist
+) {
+    std::vector<bool> used(dataset.size(), false);
+    for (size_t i = 0; i < solution.size(); i++) used[solution[i].id] = true;
+
+    std::uniform_int_distribution<int> data_dist(0, dataset.size() - 1);
+    std::uniform_int_distribution<int> sol_dist(0, solution.size() - 1);
+
+    int moves = solution.size() * 0.30f;
+
+    for (int move_index = 0; move_index < moves; move_index++) {
+        if (rng() % 4 != 0) {
+            int solution_position;
+            if (rng() % 2 != 0) {
+                solution_position = pick_bad_position(solution, dist);
+            } else {
+                solution_position = sol_dist(rng);
+            }
+
+            int dataset_position = data_dist(rng);
+            while (used[dataset_position]) 
+                dataset_position = (dataset_position + 1) % dataset.size();
+
+            Move move = move_inter_route(solution_position, dataset_position);
+            act_on_move(move, solution, dataset, used);
+        } else {
+            int a = sol_dist(rng);
+            int b = sol_dist(rng);
+            if (a != b) {
+                Move m = move_intra_route_edge_exchange(a, b);
+                act_on_move(m, solution, dataset, used);
+            }
+        }
+    }
+    return solution;
+}
+
+SolutionAndIteration get_our_iterated_local_search(const Dataset &dataset, const CostMatrix &dist) {
+    int ls_runs = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    Solution curr = get_local_search_steepest(get_random_solution(dataset), dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+    Solution best = curr;
+    int curr_score = compute_total_cost(curr, dist);
+    int best_score = curr_score;
+
+    int stagnation = 0;
+
+    while (true) {
+        auto current_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = current_time - start_time;
+        if (elapsed.count() >= 2.943)
+            break;
+        
+        ls_runs++;
+
+        Solution pert;
+        if (stagnation < 6) pert = perturb_light(curr, dataset, dist);
+        else {
+            pert = perturb_heavy(curr, dataset, dist);
+            stagnation = 0;
+        }
+
+        Solution candidate = get_local_search_steepest(pert, dataset, dist, INTRA_ROUTE_EDGE_EXCHANGE);
+        int candidate_score = compute_total_cost(candidate, dist);
+        
+        if (candidate_score < curr_score) {
+            curr = candidate;
+            curr_score = candidate_score;
+            stagnation = 0;
+        } else stagnation++;
+
+        if (candidate_score < best_score) {
+            best_score = candidate_score;
+            best = candidate;
+        }
+    }
+
+    return { best, ls_runs };
+}
+
+
