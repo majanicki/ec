@@ -20,6 +20,59 @@ In this laboratory the goal is to implement our own method of approaching this p
 
 # Pseudocode
 
+```
+FUNCTION perturb_light(solution, dataset, dist):
+    FIVE TIMES:
+        REMOVE perform edge exchange with longest edge FROM solution
+```
+
+```
+FUNCTION perturb_heavy(solution, dataset, dist):
+    30 TIMES:
+        25% chance:
+            50% chance:
+                worst := pick node with largest contribution 
+                    to objective function (node cost + outgoing edges)
+                swap worst with random node form dataset
+            50% chance:
+                swap random node with a random node from dataset
+        75% chance:
+            do random edge exchange
+    return modified solution
+```
+
+```
+FUNCTION get_our_method(dataset, dist):
+    curr := get_local_search_steepest(get_random_solution(dataset), dataset, dist)
+    best := curr
+    curr_score := compute_total_cost(curr)
+    best_score := curr_score
+
+    stagnation := 0
+
+    WHILE TRUE:
+        IF ELAPSED_TIME() > 2.9:
+            BREAK
+        IF stagnation < 6:
+            pert := pertub_light(curr, dataset, dist)
+        ELSE:
+            pert := perturb_heavy(curr, dataset, dist)
+            stagnation := 0
+        candidate := get_local_search_steepest(pert, dataset, dist)
+        candidate_score := compute_total_cost(candidate, dist)
+        IF candidate_score < curr_score:
+            curr = candidate
+            curr_score = candidate_score
+            stagnation = 0
+        ELSE:
+            stagnation = stagnation
+
+        IF candidate_score < best_score:
+            best_score = candidate_score
+            best = candidate
+    RETURN best
+```
+
 # Result Comparison
 
 | Algorithm                                          | TSPA Cost (Mean (Min, Max)) | TSPB Cost (Mean (Min, Max)) |
