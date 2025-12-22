@@ -169,3 +169,7 @@ FUNCTION get_our_method(dataset, dist):
 
 
 # Conclusions
+
+- Our method dynamically adjust search space to explore greater diversity of solutions
+- Adjustments of the algorithm can improve results of one instance, when worsening results on the other
+
