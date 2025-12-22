@@ -56,6 +56,7 @@ In this laboratory the goal is to implement our own method of approaching this p
 | Hybrid EA - Operator 1                             | 69,556.15 (69,191, 69,745)  | 43,808.20 (43,519, 44,382)  |
 | Hybrid EA - Operator 2 (local search)              | 70,034.75 (69,438, 70,773)  | 44,302.65 (43,820, 45,014)  |
 | Hybrid EA - Operator 2 (no local search)           | 70,268.50 (69,502, 70,731)  | 44,439.85 (43,973, 45,134)  |
+| Own method                                         | 69,126.40 (69,095, 69,354)  | 43,625.70 (43,446, 44,032)  |
 
 
 
@@ -67,6 +68,7 @@ In this laboratory the goal is to implement our own method of approaching this p
 | Large Neighborhood Search (with LS)                | 906.30 (888, 924)              | 990.55 (960, 1017)             |
 | Hybrid EA - Operator 1                             | 773.35 (693, 870)              | 669.60 (623, 781)              |
 | Hybrid EA - Operator 2 (local search)              | 12528.00 (10,197, 18,890)      | 12302.75 (8032, 20651)         |
+| Own method                                         | 5335.85 (5085, 5567)           | 5040.25 (4923, 5141)           |
 
 \newpage
 
@@ -94,6 +96,7 @@ In this laboratory the goal is to implement our own method of approaching this p
 | Hybrid EA - Operator 1                             | N\\A (set to MSLS mean time)     | N\\A (set to MSLS mean time)     |
 | Hybrid EA - Operator 2 (local search)              | N\\A (set to MSLS mean time)     | N\\A (set to MSLS mean time)     |
 | Hybrid EA - Operator 2 (no local search)           | N\\A (set to MSLS mean time)     | N\\A (set to MSLS mean time)     |
+| Own method                                         | N\\A (set to MSLS mean time)     | N\\A (set to MSLS mean time)     |
 
 \newpage
 
@@ -101,7 +104,15 @@ In this laboratory the goal is to implement our own method of approaching this p
 
 ## TSPA 
 
+124, 94, 63, 79, 80, 176, 137, 23, 186, 89, 183, 143, 0, 117, 93, 140, 108, 18, 69, 68, 46, 115, 139, 41, 193, 159, 22, 146, 181, 34, 160, 48, 54, 177, 10, 190, 4, 112, 84, 35, 184, 42, 43, 116, 65, 59, 118, 51, 151, 133, 162, 123, 127, 70, 135, 154, 180, 53, 100, 26, 86, 75, 101, 1, 97, 152, 2, 120, 44, 25, 16, 171, 175, 113, 56, 31, 78, 145, 196, 81, 90, 165, 119, 40, 185, 179, 92, 129, 57, 55, 52, 106, 178, 49, 14, 144, 102, 62, 9, 148, 124
+
+![](ils_own_a.png)
+
 ## TSPB
+
+130, 95, 185, 86, 166, 194, 176, 113, 114, 137, 127, 89, 103, 163, 187, 153, 81, 77, 141, 91, 61, 36, 177, 5, 78, 175, 142, 45, 80, 190, 136, 73, 54, 31, 193, 117, 198, 156, 1, 131, 121, 51, 90, 122, 135, 63, 40, 107, 133, 10, 147, 6, 188, 169, 132, 70, 3, 15, 145, 13, 195, 168, 139, 11, 138, 33, 160, 144, 104, 8, 21, 82, 111, 29, 0, 109, 35, 143, 106, 124, 62, 18, 55, 34, 170, 152, 183, 140, 4, 149, 28, 20, 60, 148, 47, 94, 66, 179, 22, 99, 130
+
+![](ils_own_b.png)
 
 
 # Conclusions
